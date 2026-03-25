@@ -12,14 +12,13 @@ import { useSettingsContext } from "../../context/SettingsContext";
 import { ProgressBar } from "./ProgressBar";
 import { DropZone } from "../ui/DropZone";
 import { ConversionResult } from "../ui/ConversionResult";
-
-// ─── Constants ────────────────────────────────────────────────────────────────
+import { IcnCheck, IcnX, IcnFolder, IcnChevronRight } from "../ui/Icons";
 
 const AUDIO_FORMATS = ["mp3", "flac", "wav", "ogg", "aac", "m4a"] as const;
 type AudioFormat = (typeof AUDIO_FORMATS)[number];
 
 const BITRATES = [
-  { label: "Auto", value: undefined },
+  { label: "Auto",     value: undefined },
   { label: "128 kbps", value: "128k" },
   { label: "192 kbps", value: "192k" },
   { label: "256 kbps", value: "256k" },
@@ -34,13 +33,7 @@ const SAMPLE_RATES = [
   { label: "96000 Hz", value: "96000" },
 ];
 
-// Accept audio AND video files (for audio extraction)
-const ACCEPTED_EXTENSIONS = [
-  ...AUDIO_FORMATS,
-  "mp4", "mkv", "avi", "mov", "webm",
-];
-
-// ─── Batch file list ──────────────────────────────────────────────────────────
+const ACCEPTED_EXTENSIONS = [...AUDIO_FORMATS, "mp4", "mkv", "avi", "mov", "webm"];
 
 function MediaBatchFileList({
   files,
@@ -54,45 +47,54 @@ function MediaBatchFileList({
   const { t } = useTranslation();
   if (files.length === 0) return null;
   return (
-    <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
+    <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxHeight: "200px", overflowY: "auto" }}>
       {files.map((f) => {
         const name = f.split(/[\\/]/).pop() ?? f;
         const result = results?.find((r) => r.input === f);
         return (
           <div
             key={f}
-            className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 gap-2"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              background: "var(--surface2)",
+              border: "1px solid var(--border)",
+              borderRadius: "8px",
+              padding: "8px 12px",
+            }}
           >
-            <span className="text-xs text-gray-300 truncate flex-1">{name}</span>
-            <div className="flex items-center gap-2 shrink-0">
+            <div style={{ flexShrink: 0, width: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
               {result ? (
                 result.success ? (
-                  <span className="text-green-400 text-xs">✓</span>
+                  <span style={{ color: "var(--success)" }}><IcnCheck size={15} strokeWidth={2.5} /></span>
                 ) : (
-                  <span
-                    className="text-red-400 text-xs"
-                    title={result.error ?? t("converter.error")}
-                  >
-                    ✕
+                  <span style={{ color: "var(--error)" }} title={result.error ?? t("converter.error")}>
+                    <IcnX size={14} strokeWidth={2.5} />
                   </span>
                 )
               ) : onRemove ? (
                 <button
                   onClick={() => onRemove(f)}
-                  className="text-gray-500 hover:text-red-400 text-xs transition-colors"
+                  style={{ color: "var(--muted)", background: "none", border: "none", cursor: "pointer", display: "flex", padding: 0 }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--error)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--muted)"; }}
                 >
-                  ✕
+                  <IcnX size={14} strokeWidth={2} />
                 </button>
-              ) : null}
+              ) : (
+                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--border2)", display: "inline-block" }} />
+              )}
             </div>
+            <span style={{ fontSize: "12px", color: "var(--text-sub)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {name}
+            </span>
           </div>
         );
       })}
     </div>
   );
 }
-
-// ─── Main component ───────────────────────────────────────────────────────────
 
 export function AudioConverter() {
   const { t } = useTranslation();
@@ -104,16 +106,11 @@ export function AudioConverter() {
   } = useConversion();
 
   const [mode, setMode] = useState<"single" | "batch">("single");
-
-  // Single mode
   const [inputPath, setInputPath] = useState<string | null>(null);
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null);
   const [outputPath, setOutputPath] = useState<string | null>(null);
-
-  // Batch mode
   const [batchFiles, setBatchFiles] = useState<string[]>([]);
 
-  // Shared options
   const [outputFormat, setOutputFormat] = useState<AudioFormat>(
     (settings.default_audio_format as AudioFormat) ?? "mp3"
   );
@@ -125,33 +122,20 @@ export function AudioConverter() {
   const isConverting = status === "converting";
   const isDone = status === "done";
 
-  // ── Single mode handlers ───────────────────────────────────────────────────
-
   const handleFileSelected = useCallback(
     async (path: string) => {
       setInputPath(path);
       setOutputPath(buildOutputPath(path, outputFormat, settings.output_dir ?? undefined));
       reset();
       setMediaInfo(null);
-      try {
-        const info = await getMediaInfo(path);
-        setMediaInfo(info);
-      } catch {
-        // non-blocking
-      }
+      try { const info = await getMediaInfo(path); setMediaInfo(info); } catch { /* non-blocking */ }
     },
     [outputFormat, settings.output_dir, getMediaInfo, reset]
   );
 
   const handleConvert = useCallback(async () => {
     if (!inputPath || !outputPath) return;
-    await convertAudio({
-      input_path: inputPath,
-      output_path: outputPath,
-      bitrate,
-      sample_rate: sampleRate,
-      normalize,
-    });
+    await convertAudio({ input_path: inputPath, output_path: outputPath, bitrate, sample_rate: sampleRate, normalize });
   }, [inputPath, outputPath, bitrate, sampleRate, normalize, convertAudio]);
 
   const handleFormatChange = (fmt: AudioFormat) => {
@@ -159,15 +143,9 @@ export function AudioConverter() {
     if (inputPath) setOutputPath(buildOutputPath(inputPath, fmt, settings.output_dir ?? undefined));
   };
 
-  // ── Batch mode handlers ────────────────────────────────────────────────────
-
   const handleBatchFilesAdded = useCallback(
     (paths: string[]) => {
-      setBatchFiles((prev) => {
-        const set = new Set(prev);
-        paths.forEach((p) => set.add(p));
-        return Array.from(set);
-      });
+      setBatchFiles((prev) => { const s = new Set(prev); paths.forEach((p) => s.add(p)); return Array.from(s); });
       reset();
     },
     [reset]
@@ -182,118 +160,110 @@ export function AudioConverter() {
     await convertAudioBatch({ files, bitrate, sample_rate: sampleRate, normalize });
   }, [batchFiles, outputFormat, settings.output_dir, bitrate, sampleRate, normalize, convertAudioBatch]);
 
-  // ── Progress label for batch ───────────────────────────────────────────────
-
   const batchProgressLabel =
     batchTotal > 0
       ? `${t("batch.progress", { index: Math.min(batchIndex + 1, batchTotal), total: batchTotal })}${currentFile ? ` — ${currentFile}` : ""}`
       : undefined;
 
-  // ── Options panel (shared between modes) ──────────────────────────────────
-
-  const selectCls = "bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-600";
+  const selectCls: React.CSSProperties = {
+    background: "var(--surface2)",
+    border: "1px solid var(--border2)",
+    color: "var(--text)",
+    fontSize: "12px",
+    borderRadius: "8px",
+    padding: "7px 10px",
+    outline: "none",
+    width: "100%",
+    cursor: "pointer",
+  };
 
   const optionsPanel = (
     <>
-      {/* Format pills */}
-      <div className="bg-gray-900 border border-gray-700 rounded-xl p-4">
-        <div className="text-[10px] text-gray-500 tracking-widest mb-3">
-          {t("converter.output_format").toUpperCase()}
-        </div>
-        <div className="flex flex-wrap gap-1.5">
+      <div className="card" style={{ padding: "14px 16px" }}>
+        <p className="section-label">{t("converter.output_format")}</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
           {AUDIO_FORMATS.map((f) => (
-            <button
-              key={f}
-              onClick={() => handleFormatChange(f)}
-              className={`px-3 py-1.5 rounded-md text-[11px] font-medium tracking-wider transition-all border ${
-                outputFormat === f
-                  ? "border-indigo-600 bg-indigo-950 text-indigo-400"
-                  : "border-gray-700 text-gray-500 hover:border-indigo-600 hover:text-indigo-400"
-              }`}
-            >
+            <button key={f} onClick={() => handleFormatChange(f)} className={`fmt-pill ${outputFormat === f ? "active" : ""}`}>
               {f.toUpperCase()}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Advanced toggle */}
       <button
         onClick={() => setShowAdvanced((v) => !v)}
-        className="flex items-center gap-2 text-indigo-400 text-xs w-fit hover:text-indigo-300 transition-colors tracking-wider"
+        style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--accent)", fontSize: "12px", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
       >
-        <span className={`transition-transform text-[8px] ${showAdvanced ? "rotate-90" : ""}`}>▶</span>
-        {t("converter.advancedOptions").toUpperCase()}
+        <span style={{ display: "flex", transition: "transform 0.15s", transform: showAdvanced ? "rotate(90deg)" : "rotate(0)" }}>
+          <IcnChevronRight size={12} />
+        </span>
+        {t("converter.advancedOptions")}
       </button>
 
       {showAdvanced && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-900 rounded-xl p-4 border border-gray-700">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-gray-500 text-[10px] tracking-widest">{t("converter.bitrate").toUpperCase()}</label>
-            <select value={bitrate ?? ""} onChange={(e) => setBitrate(e.target.value || undefined)} className={selectCls}>
-              {BITRATES.map((b) => <option key={b.label} value={b.value ?? ""}>{b.label}</option>)}
-            </select>
+        <div className="card" style={{ padding: "14px 16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+              <label style={{ fontSize: "10px", fontWeight: 600, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{t("converter.bitrate")}</label>
+              <select value={bitrate ?? ""} onChange={(e) => setBitrate(e.target.value || undefined)} style={selectCls}>
+                {BITRATES.map((b) => <option key={b.label} value={b.value ?? ""}>{b.label}</option>)}
+              </select>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+              <label style={{ fontSize: "10px", fontWeight: 600, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{t("converter.sampleRate")}</label>
+              <select value={sampleRate ?? ""} onChange={(e) => setSampleRate(e.target.value || undefined)} style={selectCls}>
+                {SAMPLE_RATES.map((s) => <option key={s.label} value={s.value ?? ""}>{s.label}</option>)}
+              </select>
+            </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-gray-500 text-[10px] tracking-widest">{t("converter.sampleRate").toUpperCase()}</label>
-            <select value={sampleRate ?? ""} onChange={(e) => setSampleRate(e.target.value || undefined)} className={selectCls}>
-              {SAMPLE_RATES.map((s) => <option key={s.label} value={s.value ?? ""}>{s.label}</option>)}
-            </select>
-          </div>
-          <div className="flex items-center gap-3 col-span-full">
+          {/* Normalize toggle */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "12px" }}>
             <button
               role="checkbox"
               aria-checked={normalize}
               onClick={() => setNormalize((v) => !v)}
-              className={`w-10 h-5 rounded-full transition-colors ${normalize ? "bg-indigo-600" : "bg-gray-700"}`}
+              style={{
+                width: "36px", height: "20px", borderRadius: "10px",
+                background: normalize ? "var(--accent)" : "var(--border2)",
+                border: "none", cursor: "pointer", transition: "background 0.15s",
+                position: "relative", flexShrink: 0,
+              }}
             >
-              <div
-                className={`w-4 h-4 bg-white rounded-full mx-0.5 transition-transform ${normalize ? "translate-x-5" : "translate-x-0"}`}
-              />
+              <span style={{
+                position: "absolute", top: "3px",
+                left: normalize ? "18px" : "3px",
+                width: "14px", height: "14px", borderRadius: "50%", background: "#fff",
+                transition: "left 0.15s",
+              }} />
             </button>
-            <label
-              className="text-gray-300 text-xs cursor-pointer tracking-wider"
-              onClick={() => setNormalize((v) => !v)}
-            >
-              {t("converter.normalize").toUpperCase()}
-            </label>
+            <span style={{ fontSize: "12px", color: "var(--text-sub)", cursor: "pointer" }} onClick={() => setNormalize((v) => !v)}>
+              {t("converter.normalize")}
+            </span>
           </div>
         </div>
       )}
     </>
   );
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
-    <div className="flex flex-col gap-5 p-6 h-full overflow-y-auto">
-      {/* Header + mode toggle */}
-      <div className="flex items-center justify-between">
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "24px", height: "100%", overflowY: "auto" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <h2
-            style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "22px", letterSpacing: "-0.02em", color: "var(--text)" }}
-          >
-            {t("nav.audio")}
-          </h2>
-          <p style={{ fontSize: "11px", color: "var(--muted)", letterSpacing: "0.04em", marginTop: "2px" }}>100% LOCAL — AUCUNE DONNEE ENVOYEE</p>
+          <h2 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)", lineHeight: 1.2 }}>{t("nav.audio")}</h2>
+          <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "3px", letterSpacing: "0.04em" }}>
+            {t("converter.localOnly") || "100% local"}
+          </p>
         </div>
-        <div className="flex bg-gray-800 border border-gray-700 rounded-lg p-0.5 text-xs">
-          <button
-            onClick={() => { setMode("single"); reset(); }}
-            className={`px-3 py-1.5 rounded-md transition-colors tracking-wider ${mode === "single" ? "bg-indigo-950 text-indigo-400" : "text-gray-500 hover:text-gray-300"}`}
-          >
-            {t("batch.single").toUpperCase()}
+        <div className="seg-ctrl">
+          <button className={mode === "single" ? "active" : ""} onClick={() => { setMode("single"); reset(); }}>
+            {t("batch.single")}
           </button>
-          <button
-            onClick={() => { setMode("batch"); reset(); }}
-            className={`px-3 py-1.5 rounded-md transition-colors tracking-wider ${mode === "batch" ? "bg-indigo-950 text-indigo-400" : "text-gray-500 hover:text-gray-300"}`}
-          >
-            {t("batch.toggle").toUpperCase()}
+          <button className={mode === "batch" ? "active" : ""} onClick={() => { setMode("batch"); reset(); }}>
+            {t("batch.toggle")}
           </button>
         </div>
       </div>
 
-      {/* ── Single mode ──────────────────────────────────────────────────────── */}
       {mode === "single" && (
         <>
           <DropZone
@@ -304,60 +274,41 @@ export function AudioConverter() {
           >
             {inputPath ? (
               <>
-                <div style={{ width:"48px",height:"48px",borderRadius:"8px",background:"var(--accent-dim)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"9px",fontWeight:700,color:"var(--accent)",letterSpacing:"0.06em",flexShrink:0 }}>AUD</div>
-                <p className="text-white text-sm font-medium text-center break-all">
-                  {inputPath.split(/[\\/]/).pop()}
-                </p>
-                {mediaInfo && (
-                  <div className="flex flex-wrap gap-3 justify-center text-xs text-gray-400 mt-1">
-                    {mediaInfo.duration > 0 && <span>{formatDuration(mediaInfo.duration)}</span>}
-                    {mediaInfo.audio_codec && <span>{mediaInfo.audio_codec}</span>}
-                    {mediaInfo.bitrate && <span>{mediaInfo.bitrate}</span>}
-                    <span>{formatFileSize(mediaInfo.file_size)}</span>
-                  </div>
-                )}
-                {!isConverting && (
-                  <span className="text-xs text-indigo-400 mt-1">{t("dropzone.fileLoaded")}</span>
-                )}
+                <div style={{ width: "52px", height: "52px", borderRadius: "12px", background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)", fontWeight: 700, fontSize: "10px", letterSpacing: "0.06em", flexShrink: 0 }}>AUD</div>
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)", marginBottom: "6px" }}>
+                    {inputPath.split(/[\\/]/).pop()}
+                  </p>
+                  {mediaInfo && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", fontSize: "11px", color: "var(--text-sub)" }}>
+                      {mediaInfo.duration > 0 && <span>{formatDuration(mediaInfo.duration)}</span>}
+                      {mediaInfo.audio_codec && <span>{mediaInfo.audio_codec}</span>}
+                      {mediaInfo.bitrate && <span>{mediaInfo.bitrate}</span>}
+                      <span>{formatFileSize(mediaInfo.file_size)}</span>
+                    </div>
+                  )}
+                </div>
+                {!isConverting && <span style={{ fontSize: "11px", color: "var(--accent)" }}>{t("dropzone.fileLoaded")}</span>}
               </>
-            ) : (
-              <>
-                <div style={{ width:"48px",height:"48px",borderRadius:"10px",background:"var(--accent-dim)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"22px",color:"var(--accent)",fontWeight:200 }}>+</div>
-                <p style={{ fontSize:"13px",fontWeight:500,color:"var(--text)" }}>{t("dropzone.label")}</p>
-                <p style={{ fontSize:"12px",color:"var(--muted)" }}>
-                  {t("converter.dropzone_sub", { formats: AUDIO_FORMATS.join(" · ").toUpperCase() })}
-                </p>
-              </>
-            )}
+            ) : undefined}
           </DropZone>
 
           {inputPath && !isConverting && !isDone && (
             <>
               {optionsPanel}
-              <button
-                onClick={handleConvert}
-                className="w-full py-3 bg-indigo-600 hover:opacity-90 active:scale-[0.99] text-white font-bold text-xs rounded-xl transition-all tracking-widest"
-                style={{ fontFamily: "'Syne', sans-serif" }}
-              >
-                {t("converter.convert").toUpperCase()}
+              <button className="btn-primary" onClick={handleConvert} style={{ width: "100%" }}>
+                {t("converter.convert")}
               </button>
             </>
           )}
 
-          {isConverting && (
-            <ProgressBar progress={progress} currentTime={currentTime} speed={speed} onCancel={cancel} />
-          )}
-
+          {isConverting && <ProgressBar progress={progress} currentTime={currentTime} speed={speed} onCancel={cancel} />}
           {isDone && outputPath && (
-            <ConversionResult
-              outputPath={outputPath}
-              onNewConversion={() => { reset(); setInputPath(null); setMediaInfo(null); }}
-            />
+            <ConversionResult outputPath={outputPath} onNewConversion={() => { reset(); setInputPath(null); setMediaInfo(null); }} />
           )}
         </>
       )}
 
-      {/* ── Batch mode ───────────────────────────────────────────────────────── */}
       {mode === "batch" && (
         <>
           {!isConverting && !isDone && (
@@ -378,55 +329,40 @@ export function AudioConverter() {
           {batchFiles.length > 0 && !isConverting && !isDone && (
             <>
               {optionsPanel}
-              <button
-                onClick={handleConvertBatch}
-                className="w-full py-3 bg-indigo-600 hover:opacity-90 active:scale-[0.99] text-white font-bold text-xs rounded-xl transition-all tracking-widest"
-                style={{ fontFamily: "'Syne', sans-serif" }}
-              >
-                {t("converter.convert").toUpperCase()} ({batchFiles.length})
+              <button className="btn-primary" onClick={handleConvertBatch} style={{ width: "100%" }}>
+                {t("converter.convert")} ({batchFiles.length})
               </button>
             </>
           )}
 
-          {isConverting && (
-            <ProgressBar progress={progress} currentFile={batchProgressLabel} onCancel={cancel} />
-          )}
+          {isConverting && <ProgressBar progress={progress} currentFile={batchProgressLabel} onCancel={cancel} />}
 
           {isDone && results && (
-            <div className="flex flex-col gap-3 animate-fade-in">
-              <div className="flex items-center gap-4 text-sm">
-                <span className="text-green-400 font-medium">
-                  ✓ {t("batch.successCount", { count: results.filter((r) => r.success).length })}
+            <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--success)", fontSize: "13px", fontWeight: 600 }}>
+                  <IcnCheck size={15} strokeWidth={2.5} />
+                  {t("batch.successCount", { count: results.filter((r) => r.success).length })}
                 </span>
                 {results.some((r) => !r.success) && (
-                  <span className="text-red-400">
-                    ✕ {t("batch.errorCount", { count: results.filter((r) => !r.success).length })}
+                  <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--error)", fontSize: "13px" }}>
+                    <IcnX size={14} strokeWidth={2.5} />
+                    {t("batch.errorCount", { count: results.filter((r) => !r.success).length })}
                   </span>
                 )}
               </div>
               <MediaBatchFileList files={batchFiles} results={results} />
-              <div className="flex gap-3 flex-wrap">
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                 {results.some((r) => r.success) && (
-                  <button
-                    onClick={async () => {
-                      const first = results.find((r) => r.success);
-                      if (first) {
-                        await invoke("open_folder", {
-                          filePath: first.output,
-                        } as unknown as Record<string, unknown>);
-                      }
-                    }}
-                    className="px-4 py-2 border border-gray-700 hover:border-gray-600 text-gray-300 text-xs rounded-lg transition-colors tracking-wider"
-                  >
-                    {t("result.openFolder").toUpperCase()}
+                  <button className="btn-ghost" onClick={async () => {
+                    const first = results.find((r) => r.success);
+                    if (first) await invoke("open_folder", { filePath: first.output } as unknown as Record<string, unknown>);
+                  }}>
+                    <IcnFolder size={14} />{t("result.openFolder")}
                   </button>
                 )}
-                <button
-                  onClick={() => { reset(); setBatchFiles([]); }}
-                  className="px-4 py-2 bg-indigo-600 hover:opacity-90 text-white text-xs rounded-lg transition-all tracking-wider font-bold"
-                  style={{ fontFamily: "'Syne', sans-serif" }}
-                >
-                  {t("result.newConversion").toUpperCase()}
+                <button className="btn-primary" onClick={() => { reset(); setBatchFiles([]); }}>
+                  {t("result.newConversion")}
                 </button>
               </div>
             </div>
@@ -434,10 +370,9 @@ export function AudioConverter() {
         </>
       )}
 
-      {/* ── Error (both modes) ───────────────────────────────────────────────── */}
       {status === "error" && error && (
-        <div className="flex items-start gap-2 text-red-400 text-sm bg-red-950/30 border border-red-900 rounded-lg p-3">
-          <span>✕</span>
+        <div style={{ display: "flex", gap: "8px", color: "var(--error)", fontSize: "13px", background: "rgba(248,113,113,0.06)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
+          <IcnX size={15} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: "1px" }} />
           <span>{t("converter.error")}: {error}</span>
         </div>
       )}
