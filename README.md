@@ -25,7 +25,8 @@ It is designed for anyone who needs reliable, fast media conversion without sacr
 ### 🖼️ Images
 - Formats: **PNG, JPG, WEBP, BMP, TIFF**
 - Resize with aspect-ratio lock (custom dimensions or presets: 50%, 25%, 720p, 1080p)
-- Adjustable quality for JPG and WEBP (0–100)
+- Adjustable quality for JPG (1–100); WEBP uses lossless encoding
+- Transparent images are composited onto a white background when converted to JPG
 - Single file or batch conversion
 
 ### 🎬 Video

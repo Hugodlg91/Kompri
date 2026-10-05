@@ -20,7 +20,7 @@ import { IcnCheck, IcnX, IcnFolder, IcnChevronRight } from "../ui/Icons";
 const IMAGE_FORMATS = ["png", "jpg", "webp", "bmp", "tiff"] as const;
 type ImageFormat = (typeof IMAGE_FORMATS)[number];
 
-const QUALITY_FORMATS: ImageFormat[] = ["jpg", "webp"];
+const QUALITY_FORMATS: ImageFormat[] = ["jpg"];
 const ACCEPTED_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "tif"];
 
 // ─── Toggle switch ────────────────────────────────────────────────────────────

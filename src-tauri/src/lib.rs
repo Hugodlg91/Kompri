@@ -86,6 +86,7 @@ async fn run_ffmpeg(
     args: Vec<String>,
     output_path: String,
 ) -> Result<String, String> {
+    ensure_output_available(&output_path)?;
     let (mut rx, child) = app
         .shell()
         .sidecar("ffmpeg")
@@ -153,6 +154,12 @@ async fn run_ffmpeg(
                 let mut guard = process_slot.lock().map_err(|e| e.to_string())?;
                 *guard = None;
 
+                // Bundled FFmpeg can return code 0 when -n refuses a file.
+                // Do not report that refusal as a successful conversion.
+                if stderr_buf.contains("already exists. Exiting.") {
+                    return Err(output_exists_error(&output_path));
+                }
+
                 return if status.code == Some(0) {
                     // Emit 100 % on success
                     let _ = app.emit(
@@ -219,8 +226,8 @@ async fn convert_video(
         args.extend(["-b:v".into(), br.clone()]);
     }
 
-    // Overwrite output without asking
-    args.extend(["-y".into(), output_path.clone()]);
+    // Refuse existing outputs, including files created after our preflight check.
+    args.extend(["-nostdin".into(), "-n".into(), output_path.clone()]);
 
     let slot = Arc::clone(&state.current_process);
     run_ffmpeg(app, slot, args, output_path).await
@@ -257,7 +264,7 @@ async fn convert_audio(
         args.extend(["-af".into(), "loudnorm".into()]);
     }
 
-    args.extend(["-y".into(), output_path.clone()]);
+    args.extend(["-nostdin".into(), "-n".into(), output_path.clone()]);
 
     let slot = Arc::clone(&state.current_process);
     run_ffmpeg(app, slot, args, output_path).await
@@ -410,6 +417,19 @@ struct ImageProgressPayload {
 
 // ─── Image helpers ────────────────────────────────────────────────────────────
 
+fn output_exists_error(path: &str) -> String {
+    format!("Le fichier de sortie existe déjà : {}. Choisissez un autre dossier de destination.", path)
+}
+
+/// Also reject directories and dangling symlinks; neither is a free output path.
+fn ensure_output_available(path: &str) -> Result<(), String> {
+    match std::fs::symlink_metadata(path) {
+        Ok(_) => Err(output_exists_error(path)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// Load, optionally resize, and save an image to the target format with
 /// optional quality (applies to JPEG only; WebP/PNG/BMP/TIFF use defaults).
 fn process_single_image(
@@ -420,6 +440,17 @@ fn process_single_image(
     resize: Option<&ResizeOptions>,
 ) -> Result<(), String> {
     use image::imageops::FilterType;
+    use std::io::Write;
+
+    ensure_output_available(output_path)?;
+    let output_format = match format.to_lowercase().as_str() {
+        "jpg" | "jpeg" => image::ImageFormat::Jpeg,
+        "webp" => image::ImageFormat::WebP,
+        "png" => image::ImageFormat::Png,
+        "bmp" => image::ImageFormat::Bmp,
+        "tiff" | "tif" => image::ImageFormat::Tiff,
+        other => return Err(format!("Format non supporté : {}", other)),
+    };
 
     let mut img = image::open(input_path)
         .map_err(|e| format!("Impossible d'ouvrir l'image : {}", e))?;
@@ -459,35 +490,52 @@ fn process_single_image(
     // ── Encode ────────────────────────────────────────────────────────────────
     let quality = quality.unwrap_or(85);
 
-    match format.to_lowercase().as_str() {
-        "jpg" | "jpeg" => {
-            let file =
-                std::fs::File::create(output_path).map_err(|e| e.to_string())?;
-            let mut writer = std::io::BufWriter::new(file);
+    // JPEG cannot retain alpha. Composite over white instead of silently
+    // turning transparent areas black; also normalize higher bit depths to RGB8.
+    if output_format == image::ImageFormat::Jpeg {
+        let rgb = if img.color().has_alpha() {
+            let rgba = img.to_rgba8();
+            image::RgbImage::from_fn(rgba.width(), rgba.height(), |x, y| {
+                let pixel = rgba.get_pixel(x, y);
+                let alpha = u32::from(pixel[3]);
+                image::Rgb(std::array::from_fn(|channel| {
+                    ((u32::from(pixel[channel]) * alpha + 255 * (255 - alpha) + 127) / 255) as u8
+                }))
+            })
+        } else {
+            img.to_rgb8()
+        };
+        img = image::DynamicImage::ImageRgb8(rgb);
+    }
+
+    // Reserve the output atomically; never truncate another conversion's file.
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                output_exists_error(output_path)
+            } else {
+                e.to_string()
+            }
+        })?;
+    let result = (|| -> Result<(), String> {
+        let mut writer = std::io::BufWriter::new(file);
+        if output_format == image::ImageFormat::Jpeg {
             let encoder =
                 image::codecs::jpeg::JpegEncoder::new_with_quality(&mut writer, quality);
             img.write_with_encoder(encoder).map_err(|e| e.to_string())?;
+        } else {
+            img.write_to(&mut writer, output_format).map_err(|e| e.to_string())?;
         }
-        "webp" => {
-            img.save_with_format(output_path, image::ImageFormat::WebP)
-                .map_err(|e| e.to_string())?;
-        }
-        "png" => {
-            img.save_with_format(output_path, image::ImageFormat::Png)
-                .map_err(|e| e.to_string())?;
-        }
-        "bmp" => {
-            img.save_with_format(output_path, image::ImageFormat::Bmp)
-                .map_err(|e| e.to_string())?;
-        }
-        "tiff" | "tif" => {
-            img.save_with_format(output_path, image::ImageFormat::Tiff)
-                .map_err(|e| e.to_string())?;
-        }
-        other => return Err(format!("Format non supporté : {}", other)),
+        writer.flush().map_err(|e| e.to_string())
+    })();
+    // The writer is closed before removing an incomplete file, also on Windows.
+    if result.is_err() {
+        let _ = std::fs::remove_file(output_path);
     }
-
-    Ok(())
+    result
 }
 
 // ─── Image commands ───────────────────────────────────────────────────────────
@@ -673,7 +721,7 @@ async fn convert_video_batch(
             args.extend(["-b:v".into(), br.clone()]);
         }
 
-        args.extend(["-y".into(), item.output_path.clone()]);
+        args.extend(["-nostdin".into(), "-n".into(), item.output_path.clone()]);
 
         let slot = Arc::clone(&state.current_process);
         let result = run_ffmpeg(app.clone(), slot, args, item.output_path.clone()).await;
@@ -755,7 +803,7 @@ async fn convert_audio_batch(
             args.extend(["-af".into(), "loudnorm".into()]);
         }
 
-        args.extend(["-y".into(), item.output_path.clone()]);
+        args.extend(["-nostdin".into(), "-n".into(), item.output_path.clone()]);
 
         let slot = Arc::clone(&state.current_process);
         let result = run_ffmpeg(app.clone(), slot, args, item.output_path.clone()).await;
@@ -1067,3 +1115,6 @@ mod tests {
         assert_eq!(s.default_image_format, "webp");
     }
 }
+
+#[cfg(test)]
+mod output_tests;
