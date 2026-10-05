@@ -76,3 +76,9 @@ rustup-init.exe
 # Misc
 .claude
 *.local
+
+# Local Codex / Claude collaboration
+/AGENTS.md
+/CLAUDE.md
+/COLLABORATION.md
+/collaboration/
