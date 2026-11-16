@@ -41,5 +41,10 @@ export function useHistory() {
         setHistory([]);
     }, []);
 
-    return { history, isLoading, clearHistory, refreshHistory };
+    const removeHistoryItem = useCallback(async (id: string) => {
+        await invoke("remove_history_item", { id });
+        setHistory((prev) => prev.filter((item) => item.id !== id));
+    }, []);
+
+    return { history, isLoading, clearHistory, removeHistoryItem, refreshHistory };
 }

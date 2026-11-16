@@ -33,9 +33,11 @@
     "sampleRate": "Sample rate",
     "cancel": "Cancel",
     "done": "Conversion complete!",
+    "busy": "Another conversion of the same kind is already running. Wait for it to finish or cancel it.",
     "error": "Error",
     "convert_another": "Convert another file",
-    "localOnly": "100% local"
+    "localOnly": "100% local — offline processing",
+    "outputPreview": "Output: {{name}}"
   },
   "status": {
     "ready": "Ready",
@@ -50,6 +52,10 @@
     "clearConfirm": "Confirm?",
     "openFile": "Open file",
     "openFolder": "Open folder",
+    "searchPlaceholder": "Search file or format...",
+    "filterAll": "All",
+    "deleteItem": "Remove from history",
+    "noResults": "No matching conversions found.",
     "mediaType": {
       "image": "Image",
       "video": "Video",
@@ -106,6 +112,7 @@
   },
   "result": {
     "success": "Conversion complete!",
+    "openFile": "Open file",
     "openFolder": "Open folder",
     "newConversion": "New conversion"
   },
@@ -124,5 +131,11 @@
     "description": "The application encountered an unexpected problem.",
     "reload": "Reload application",
     "report": "If the issue persists, please don't hesitate to contact us."
+  },
+  "window": {
+    "close": "Close",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore"
   }
 }

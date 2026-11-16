@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useSettingsContext } from "../../context/SettingsContext";
-import { IcnChevronDown, IcnFolder, IcnX, IcnCheck } from "../ui/Icons";
+import { IcnChevronDown, IcnFolder, IcnX, IcnCheck, IcnMoon, IcnSun, IcnSparkles } from "../ui/Icons";
 
 const LANGUAGES = [
   { code: "fr", label: "Français" },
@@ -44,55 +44,76 @@ function PillSelect({
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button
+        className="glass-select"
         onClick={() => setIsOpen((v) => !v)}
         style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
           fontSize: "12px",
-          padding: "7px 12px",
+          padding: "8px 12px",
           border: "1px solid var(--border2)",
-          borderRadius: "8px",
+          borderRadius: "10px",
           color: "var(--text)",
-          background: "var(--surface2)",
+          background: "var(--surface)",
+          backdropFilter: "var(--glass-blur)",
+          WebkitBackdropFilter: "var(--glass-blur)",
           cursor: "pointer",
           minWidth: "120px",
+          width: "100%",
           justifyContent: "space-between",
-          transition: "border-color 0.15s",
+          transition: "border-color 0.15s, box-shadow 0.15s",
           fontWeight: 500,
+          boxShadow: "var(--shadow-sm)",
         }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; }}
-        onMouseLeave={(e) => { if (!isOpen) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border2)"; }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)";
+        }}
+        onMouseLeave={(e) => {
+          if (!isOpen) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border2)";
+        }}
       >
         <span>{current?.label ?? value}</span>
-        <span style={{ color: "var(--muted)", display: "flex", transition: "transform 0.15s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>
+        <span
+          style={{
+            color: "var(--muted)",
+            display: "flex",
+            transition: "transform 0.15s",
+            transform: isOpen ? "rotate(180deg)" : "rotate(0)",
+          }}
+        >
           <IcnChevronDown size={13} strokeWidth={2} />
         </span>
       </button>
 
       {isOpen && (
         <div
-          className="fade-in"
+          className="fade-in glass-panel"
           style={{
             position: "absolute",
-            top: "calc(100% + 4px)",
+            top: "calc(100% + 6px)",
             right: 0,
             background: "var(--surface)",
+            backdropFilter: "var(--glass-blur)",
+            WebkitBackdropFilter: "var(--glass-blur)",
             border: "1px solid var(--border2)",
-            borderRadius: "10px",
-            padding: "4px",
+            borderRadius: "12px",
+            padding: "5px",
             zIndex: 50,
-            minWidth: "140px",
+            minWidth: "145px",
             boxShadow: "var(--shadow)",
             display: "flex",
             flexDirection: "column",
-            gap: "1px",
+            gap: "2px",
           }}
         >
           {options.map((o) => (
             <button
               key={o.value}
-              onClick={() => { onChange(o.value); setIsOpen(false); }}
+              onClick={() => {
+                onChange(o.value);
+                setIsOpen(false);
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -100,7 +121,7 @@ function PillSelect({
                 gap: "8px",
                 textAlign: "left",
                 padding: "7px 10px",
-                borderRadius: "7px",
+                borderRadius: "8px",
                 border: "none",
                 fontSize: "12px",
                 cursor: "pointer",
@@ -131,10 +152,13 @@ function PillSelect({
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div
+      className="card glass-card"
       style={{
         background: "var(--surface)",
+        backdropFilter: "var(--glass-blur)",
+        WebkitBackdropFilter: "var(--glass-blur)",
         border: "1px solid var(--border)",
-        borderRadius: "12px",
+        borderRadius: "16px",
         padding: "20px",
         display: "flex",
         flexDirection: "column",
@@ -142,7 +166,15 @@ function SectionCard({ title, children }: { title: string; children: React.React
         boxShadow: "var(--shadow-sm)",
       }}
     >
-      <h3 style={{ fontSize: "10px", color: "var(--muted)", letterSpacing: "0.12em", fontWeight: 700, textTransform: "uppercase" }}>
+      <h3
+        style={{
+          fontSize: "10px",
+          color: "var(--muted)",
+          letterSpacing: "0.12em",
+          fontWeight: 700,
+          textTransform: "uppercase",
+        }}
+      >
         {title}
       </h3>
       {children}
@@ -164,12 +196,22 @@ function SettingRow({ label, children }: { label: string; children: React.ReactN
 function ThemeToggle({ value, onChange }: { value: "dark" | "light"; onChange: (v: "dark" | "light") => void }) {
   const { t } = useTranslation();
   return (
-    <div className="seg-ctrl" style={{ minWidth: "160px" }}>
-      <button className={value === "dark" ? "active" : ""} onClick={() => onChange("dark")}>
-        🌙 {t("settings.themeDark")}
+    <div className="seg-ctrl" style={{ minWidth: "170px" }}>
+      <button
+        className={value === "dark" ? "active" : ""}
+        onClick={() => onChange("dark")}
+        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px", flex: 1 }}
+      >
+        <IcnMoon size={13} />
+        <span>{t("settings.themeDark")}</span>
       </button>
-      <button className={value === "light" ? "active" : ""} onClick={() => onChange("light")}>
-        ☀️ {t("settings.themeLight")}
+      <button
+        className={value === "light" ? "active" : ""}
+        onClick={() => onChange("light")}
+        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px", flex: 1 }}
+      >
+        <IcnSun size={13} />
+        <span>{t("settings.themeLight")}</span>
       </button>
     </div>
   );
@@ -197,12 +239,21 @@ export function SettingsPage() {
   const imageOptions = IMAGE_FORMATS.map((f) => ({ value: f, label: f.toUpperCase() }));
 
   return (
-    <div style={{ padding: "24px", height: "100%", overflowY: "auto", display: "flex", flexDirection: "column", gap: "24px" }}>
+    <div
+      style={{
+        padding: "24px",
+        height: "100%",
+        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: "24px",
+      }}
+    >
       <h2 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)", lineHeight: 1.2 }}>
         {t("settings.title")}
       </h2>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "14px", maxWidth: "540px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "14px", maxWidth: "560px" }}>
 
         {/* ── Appearance ───────────────────────────────────────────────────── */}
         <SectionCard title={t("settings.appearance")}>
@@ -221,21 +272,32 @@ export function SettingsPage() {
             <label style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>{t("settings.outputDir")}</label>
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
               <div
+                className="glass-input"
                 style={{
                   flex: 1,
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
                   background: "var(--surface2)",
+                  backdropFilter: "var(--glass-blur)",
+                  WebkitBackdropFilter: "var(--glass-blur)",
                   border: "1px solid var(--border2)",
-                  borderRadius: "8px",
+                  borderRadius: "10px",
                   padding: "8px 12px",
                   minWidth: 0,
+                  boxShadow: "var(--shadow-sm)",
                 }}
               >
                 <IcnFolder size={14} color="var(--muted)" />
                 <span
-                  style={{ fontSize: "12px", color: settings.output_dir ? "var(--text)" : "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}
+                  style={{
+                    fontSize: "12px",
+                    color: settings.output_dir ? "var(--text)" : "var(--muted)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    flex: 1,
+                  }}
                   title={settings.output_dir ?? ""}
                 >
                   {settings.output_dir ?? t("settings.outputDirDefault")}
@@ -267,7 +329,9 @@ export function SettingsPage() {
                 { label: t("settings.defaultImage"), val: settings.default_image_format, opts: imageOptions, key: "default_image_format" },
               ].map(({ label, val, opts, key }) => (
                 <div key={key} style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                  <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</span>
+                  <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                    {label}
+                  </span>
                   <PillSelect value={val} options={opts} onChange={(v) => updateSettings({ [key]: v } as Record<string, string>)} />
                 </div>
               ))}
@@ -277,20 +341,58 @@ export function SettingsPage() {
 
         {/* ── About ────────────────────────────────────────────────────────── */}
         <SectionCard title={t("settings.about")}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>MediaForge</p>
-              {version && <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>{t("settings.version")} {version}</p>}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div
+                className="glass-badge"
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: "var(--accent-dim)",
+                  border: "1px solid var(--border2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--accent)",
+                }}
+              >
+                <IcnSparkles size={16} />
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>MediaForge</p>
+                  {version && (
+                    <span
+                      className="glass-badge"
+                      style={{
+                        fontSize: "10px",
+                        fontWeight: 600,
+                        color: "var(--text-sub)",
+                        background: "var(--surface2)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "6px",
+                        padding: "2px 7px",
+                      }}
+                    >
+                      {t("settings.version")} {version}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
             <div
+              className="glass-badge"
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "6px",
                 background: "rgba(16, 185, 129, 0.08)",
-                border: "1px solid rgba(16, 185, 129, 0.2)",
-                borderRadius: "8px",
-                padding: "5px 10px",
+                backdropFilter: "var(--glass-blur)",
+                WebkitBackdropFilter: "var(--glass-blur)",
+                border: "1px solid rgba(16, 185, 129, 0.24)",
+                borderRadius: "999px",
+                padding: "5px 12px",
               }}
             >
               <IcnCheck size={12} strokeWidth={2.5} color="var(--success)" />

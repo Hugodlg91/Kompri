@@ -75,6 +75,7 @@ export function useImageConversion() {
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const [results, setResults] = useState<BatchResult[] | null>(null);
   const unsubRef = useRef<(() => void) | null>(null);
+  const runningRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +96,9 @@ export function useImageConversion() {
 
   const convertImage = useCallback(
     async (params: ConvertImageParams): Promise<string> => {
+      // Refuse before touching the state of the job already running here.
+      if (runningRef.current) throw "busy";
+      runningRef.current = true;
       setStatus("converting");
       setProgress(0);
       setError(null);
@@ -120,6 +124,8 @@ export function useImageConversion() {
         setError(String(e));
         setStatus("error");
         throw e;
+      } finally {
+        runningRef.current = false;
       }
     },
     []
@@ -127,6 +133,9 @@ export function useImageConversion() {
 
   const convertImagesBatch = useCallback(
     async (params: ConvertBatchParams): Promise<BatchResult[]> => {
+      // Refuse before touching the state of the job already running here.
+      if (runningRef.current) throw "busy";
+      runningRef.current = true;
       setStatus("converting");
       setProgress(0);
       setError(null);
@@ -156,6 +165,8 @@ export function useImageConversion() {
         setError(String(e));
         setStatus("error");
         throw e;
+      } finally {
+        runningRef.current = false;
       }
     },
     []
@@ -168,6 +179,7 @@ export function useImageConversion() {
   );
 
   const reset = useCallback(() => {
+    if (runningRef.current) return;
     setStatus("idle");
     setProgress(0);
     setError(null);
