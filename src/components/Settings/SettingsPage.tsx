@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -29,30 +30,92 @@ function PillSelect({
   onChange: (v: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const [coords, setCoords] = useState<{
+    top?: number;
+    bottom?: number;
+    left?: number;
+    right?: number;
+    width: number;
+  }>({ width: 150 });
+
+  const updateCoords = () => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const estimatedHeight = options.length * 34 + 16;
+    const openUpward = rect.bottom + estimatedHeight > window.innerHeight - 12;
+    const width = Math.max(rect.width, 150);
+    const alignRight = rect.right - width >= 12;
+
+    setCoords({
+      top: openUpward ? undefined : rect.bottom + 6,
+      bottom: openUpward ? window.innerHeight - rect.top + 6 : undefined,
+      left: alignRight ? undefined : Math.max(12, rect.left),
+      right: alignRight ? Math.max(12, window.innerWidth - rect.right) : undefined,
+      width,
+    });
+  };
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false);
+    if (!isOpen) return;
+
+    updateCoords();
+
+    const handleResizeOrScroll = () => {
+      updateCoords();
     };
-    if (isOpen) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [isOpen]);
+
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        !buttonRef.current?.contains(target) &&
+        !menuRef.current?.contains(target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+
+    window.addEventListener("resize", handleResizeOrScroll);
+    window.addEventListener("scroll", handleResizeOrScroll, true);
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("resize", handleResizeOrScroll);
+      window.removeEventListener("scroll", handleResizeOrScroll, true);
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, options.length]);
 
   const current = options.find((o) => o.value === value);
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div style={{ position: "relative" }}>
       <button
+        ref={buttonRef}
+        type="button"
         className="glass-select"
-        onClick={() => setIsOpen((v) => !v)}
+        onClick={() => {
+          if (!isOpen) updateCoords();
+          setIsOpen((v) => !v);
+        }}
         style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
           fontSize: "12px",
           padding: "8px 12px",
-          border: "1px solid var(--border2)",
+          border: isOpen ? "1px solid var(--accent)" : "1px solid var(--border2)",
           borderRadius: "10px",
           color: "var(--text)",
           background: "var(--surface)",
@@ -86,63 +149,71 @@ function PillSelect({
         </span>
       </button>
 
-      {isOpen && (
-        <div
-          className="fade-in glass-panel"
-          style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            right: 0,
-            background: "var(--surface)",
-            backdropFilter: "var(--glass-blur)",
-            WebkitBackdropFilter: "var(--glass-blur)",
-            border: "1px solid var(--border2)",
-            borderRadius: "12px",
-            padding: "5px",
-            zIndex: 50,
-            minWidth: "145px",
-            boxShadow: "var(--shadow)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "2px",
-          }}
-        >
-          {options.map((o) => (
-            <button
-              key={o.value}
-              onClick={() => {
-                onChange(o.value);
-                setIsOpen(false);
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "8px",
-                textAlign: "left",
-                padding: "7px 10px",
-                borderRadius: "8px",
-                border: "none",
-                fontSize: "12px",
-                cursor: "pointer",
-                color: o.value === value ? "var(--accent)" : "var(--text)",
-                background: o.value === value ? "var(--accent-dim)" : "transparent",
-                fontWeight: o.value === value ? 600 : 400,
-                transition: "background 0.1s",
-              }}
-              onMouseEnter={(e) => {
-                if (o.value !== value) (e.currentTarget as HTMLButtonElement).style.background = "var(--surface2)";
-              }}
-              onMouseLeave={(e) => {
-                if (o.value !== value) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-              }}
-            >
-              <span>{o.label}</span>
-              {o.value === value && <IcnCheck size={12} strokeWidth={2.5} />}
-            </button>
-          ))}
-        </div>
-      )}
+      {isOpen &&
+        (coords.top !== undefined || coords.bottom !== undefined) &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fade-in glass-panel"
+            style={{
+              position: "fixed",
+              top: coords.top !== undefined ? `${coords.top}px` : undefined,
+              bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
+              left: coords.left !== undefined ? `${coords.left}px` : undefined,
+              right: coords.right !== undefined ? `${coords.right}px` : undefined,
+              minWidth: `${coords.width}px`,
+              zIndex: 9999,
+              background: "var(--popover-bg, var(--surface-solid))",
+              backdropFilter: "var(--glass-blur)",
+              WebkitBackdropFilter: "var(--glass-blur)",
+              border: "1px solid var(--border2)",
+              borderRadius: "12px",
+              padding: "5px",
+              boxShadow: "var(--shadow), inset 0 1px 0 var(--glass-highlight)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "2px",
+            }}
+          >
+            {options.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => {
+                  onChange(o.value);
+                  setIsOpen(false);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "8px",
+                  textAlign: "left",
+                  padding: "7px 10px",
+                  borderRadius: "8px",
+                  border: "none",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  color: o.value === value ? "var(--accent)" : "var(--text)",
+                  background: o.value === value ? "var(--accent-dim)" : "transparent",
+                  fontWeight: o.value === value ? 600 : 400,
+                  transition: "background 0.1s",
+                }}
+                onMouseEnter={(e) => {
+                  if (o.value !== value) (e.currentTarget as HTMLButtonElement).style.background = "var(--surface2)";
+                }}
+                onMouseLeave={(e) => {
+                  if (o.value !== value) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                }}
+              >
+                <span>{o.label}</span>
+                {o.value === value && <IcnCheck size={12} strokeWidth={2.5} />}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
