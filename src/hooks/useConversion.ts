@@ -72,6 +72,9 @@ interface BatchProgressPayload {
 
 export type ConversionStatus = "idle" | "converting" | "done" | "error";
 
+/** Same code as the backend's refusal of a second simultaneous job. */
+export const BUSY_ERROR = "busy";
+
 // ─── History helper ───────────────────────────────────────────────────────────
 
 function recordHistory(item: HistoryItem) {
@@ -107,6 +110,9 @@ export function useConversion() {
 
   // Prevents single-file "conversion_progress" from overwriting batch progress
   const isBatchRef = useRef(false);
+  // Video and audio converters stay mounted together and hear the same
+  // events; only the instance that launched the running job applies them.
+  const ownsJobRef = useRef(false);
 
   const unsubRef = useRef<(() => void) | null>(null);
   const batchUnsubRef = useRef<(() => void) | null>(null);
@@ -115,7 +121,7 @@ export function useConversion() {
   useEffect(() => {
     let cancel = false;
     listen<ProgressPayload>("conversion_progress", (event) => {
-      if (cancel || isBatchRef.current) return;
+      if (cancel || !ownsJobRef.current || isBatchRef.current) return;
       const { percentage, speed, current_time } = event.payload;
       setProgress(percentage);
       if (speed) setSpeed(speed);
@@ -134,7 +140,7 @@ export function useConversion() {
   useEffect(() => {
     let cancel = false;
     listen<BatchProgressPayload>("batch_progress", (event) => {
-      if (cancel) return;
+      if (cancel || !ownsJobRef.current || !isBatchRef.current) return;
       const { percentage, current_file, index, total } = event.payload;
       setProgress(percentage);
       setCurrentFile(current_file || null);
@@ -153,11 +159,14 @@ export function useConversion() {
   // ── Single-file commands ───────────────────────────────────────────────────
 
   const convertVideo = useCallback(async (params: VideoConvertParams): Promise<string> => {
+    // Refuse before touching the state of the job already running here.
+    if (ownsJobRef.current) throw BUSY_ERROR;
     setStatus("converting");
     setProgress(0);
     setError(null);
     setSpeed("");
     setCurrentTime("");
+    ownsJobRef.current = true;
     try {
       const result = await invoke<string>("convert_video", params as unknown as Record<string, unknown>);
       setStatus("done");
@@ -179,17 +188,25 @@ export function useConversion() {
         setStatus("error");
       } else {
         setStatus("idle");
+        setProgress(0);
+        setSpeed("");
+        setCurrentTime("");
       }
       throw e;
+    } finally {
+      ownsJobRef.current = false;
     }
   }, []);
 
   const convertAudio = useCallback(async (params: AudioConvertParams): Promise<string> => {
+    // Refuse before touching the state of the job already running here.
+    if (ownsJobRef.current) throw BUSY_ERROR;
     setStatus("converting");
     setProgress(0);
     setError(null);
     setSpeed("");
     setCurrentTime("");
+    ownsJobRef.current = true;
     try {
       const result = await invoke<string>("convert_audio", params as unknown as Record<string, unknown>);
       setStatus("done");
@@ -211,14 +228,21 @@ export function useConversion() {
         setStatus("error");
       } else {
         setStatus("idle");
+        setProgress(0);
+        setSpeed("");
+        setCurrentTime("");
       }
       throw e;
+    } finally {
+      ownsJobRef.current = false;
     }
   }, []);
 
   // ── Batch commands ─────────────────────────────────────────────────────────
 
   const convertVideoBatch = useCallback(async (params: BatchVideoParams): Promise<BatchResult[]> => {
+    // Refuse before touching the state of the job already running here.
+    if (ownsJobRef.current) throw BUSY_ERROR;
     setStatus("converting");
     setProgress(0);
     setError(null);
@@ -227,6 +251,7 @@ export function useConversion() {
     setBatchTotal(params.files.length);
     setCurrentFile(null);
     isBatchRef.current = true;
+    ownsJobRef.current = true;
     try {
       const res = await invoke<BatchResult[]>(
         "convert_video_batch",
@@ -254,14 +279,20 @@ export function useConversion() {
         setStatus("error");
       } else {
         setStatus("idle");
+        setProgress(0);
+        setSpeed("");
+        setCurrentTime("");
       }
       throw e;
     } finally {
       isBatchRef.current = false;
+      ownsJobRef.current = false;
     }
   }, []);
 
   const convertAudioBatch = useCallback(async (params: BatchAudioParams): Promise<BatchResult[]> => {
+    // Refuse before touching the state of the job already running here.
+    if (ownsJobRef.current) throw BUSY_ERROR;
     setStatus("converting");
     setProgress(0);
     setError(null);
@@ -270,6 +301,7 @@ export function useConversion() {
     setBatchTotal(params.files.length);
     setCurrentFile(null);
     isBatchRef.current = true;
+    ownsJobRef.current = true;
     try {
       const res = await invoke<BatchResult[]>(
         "convert_audio_batch",
@@ -297,10 +329,14 @@ export function useConversion() {
         setStatus("error");
       } else {
         setStatus("idle");
+        setProgress(0);
+        setSpeed("");
+        setCurrentTime("");
       }
       throw e;
     } finally {
       isBatchRef.current = false;
+      ownsJobRef.current = false;
     }
   }, []);
 
@@ -312,15 +348,14 @@ export function useConversion() {
     []
   );
 
+  // The pending conversion promise rejects with "cancelled" and resets the
+  // state; resetting here would allow a relaunch before the job is released.
   const cancel = useCallback(async () => {
     await invoke("cancel_conversion");
-    setStatus("idle");
-    setProgress(0);
-    setSpeed("");
-    setCurrentTime("");
   }, []);
 
   const reset = useCallback(() => {
+    if (ownsJobRef.current) return;
     setStatus("idle");
     setProgress(0);
     setError(null);

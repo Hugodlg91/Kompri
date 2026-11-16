@@ -12,7 +12,16 @@ import { useSettingsContext } from "../../context/SettingsContext";
 import { ProgressBar } from "./ProgressBar";
 import { DropZone } from "../ui/DropZone";
 import { ConversionResult } from "../ui/ConversionResult";
-import { IcnCheck, IcnX, IcnFolder, IcnChevronRight } from "../ui/Icons";
+import {
+  IcnCheck,
+  IcnX,
+  IcnFolder,
+  IcnChevronRight,
+  IcnTrash,
+  IcnSliders,
+  IcnExternalLink,
+  IcnRefresh,
+} from "../ui/Icons";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -55,10 +64,11 @@ function MediaBatchFileList({
   const { t } = useTranslation();
   if (files.length === 0) return null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxHeight: "200px", overflowY: "auto" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "220px", overflowY: "auto" }}>
       {files.map((f) => {
         const name = f.split(/[\\/]/).pop() ?? f;
         const result = results?.find((r) => r.input === f);
+        const outName = result?.output ? (result.output.split(/[\\/]/).pop() ?? result.output) : null;
         return (
           <div
             key={f}
@@ -66,19 +76,21 @@ function MediaBatchFileList({
               display: "flex",
               alignItems: "center",
               gap: "10px",
-              background: "var(--surface2)",
+              background: "var(--surface)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
               border: "1px solid var(--border)",
-              borderRadius: "8px",
-              padding: "8px 12px",
+              borderRadius: "10px",
+              padding: "9px 12px",
             }}
           >
             {/* Status / remove */}
             <div style={{ flexShrink: 0, width: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
               {result ? (
                 result.success ? (
-                  <span style={{ color: "var(--success)" }}><IcnCheck size={15} strokeWidth={2.5} /></span>
+                  <span style={{ color: "var(--success)", display: "flex" }}><IcnCheck size={15} strokeWidth={2.5} /></span>
                 ) : (
-                  <span style={{ color: "var(--error)" }} title={result.error ?? t("converter.error")}>
+                  <span style={{ color: "var(--error)", display: "flex" }} title={result.error ?? t("converter.error")}>
                     <IcnX size={14} strokeWidth={2.5} />
                   </span>
                 )
@@ -98,6 +110,47 @@ function MediaBatchFileList({
             <span style={{ fontSize: "12px", color: "var(--text-sub)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {name}
             </span>
+            {result && result.success && outName && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                <span className="glass-badge" style={{ fontSize: "11px", color: "var(--success)" }}>
+                  → {outName}
+                </span>
+                <button
+                  className="btn-ghost"
+                  style={{ padding: "4px 8px", fontSize: "11px" }}
+                  title={t("result.openFile")}
+                  onClick={() => invoke("open_file", { path: result.output })}
+                >
+                  <IcnExternalLink size={12} />
+                </button>
+                <button
+                  className="btn-ghost"
+                  style={{ padding: "4px 8px", fontSize: "11px" }}
+                  title={t("result.openFolder")}
+                  onClick={() => invoke("open_folder", { file_path: result.output })}
+                >
+                  <IcnFolder size={12} />
+                </button>
+              </div>
+            )}
+            {result && !result.success && (
+              <span
+                className="glass-badge"
+                style={{
+                  fontSize: "11px",
+                  color: "var(--error)",
+                  borderColor: "rgba(248, 113, 113, 0.3)",
+                  background: "rgba(248, 113, 113, 0.08)",
+                  maxWidth: "220px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={result.error ?? t("converter.error")}
+              >
+                {result.error ?? t("converter.error")}
+              </span>
+            )}
           </div>
         );
       })}
@@ -177,13 +230,6 @@ export function VideoConverter() {
       : undefined;
 
   const selectCls: React.CSSProperties = {
-    background: "var(--surface2)",
-    border: "1px solid var(--border2)",
-    color: "var(--text)",
-    fontSize: "12px",
-    borderRadius: "8px",
-    padding: "7px 10px",
-    outline: "none",
     width: "100%",
     cursor: "pointer",
   };
@@ -209,23 +255,25 @@ export function VideoConverter() {
       {/* Advanced toggle */}
       <button
         onClick={() => setShowAdvanced((v) => !v)}
+        className="glass-badge"
         style={{
-          display: "flex",
+          display: "inline-flex",
           alignItems: "center",
-          gap: "6px",
+          gap: "7px",
           color: "var(--accent)",
           fontSize: "12px",
-          background: "none",
-          border: "none",
           cursor: "pointer",
-          fontWeight: 500,
-          padding: 0,
+          fontWeight: 600,
+          padding: "7px 14px",
+          borderRadius: "10px",
+          width: "fit-content",
         }}
       >
+        <IcnSliders size={13} />
+        <span>{t("converter.advancedOptions")}</span>
         <span style={{ display: "flex", transition: "transform 0.15s", transform: showAdvanced ? "rotate(90deg)" : "rotate(0)" }}>
           <IcnChevronRight size={12} />
         </span>
-        {t("converter.advancedOptions")}
       </button>
 
       {showAdvanced && (
@@ -238,7 +286,7 @@ export function VideoConverter() {
             ].map(({ label, value, setter, opts }) => (
               <div key={label} style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                 <label style={{ fontSize: "10px", fontWeight: 600, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</label>
-                <select value={value ?? ""} onChange={(e) => setter(e.target.value || undefined)} style={selectCls}>
+                <select value={value ?? ""} onChange={(e) => setter(e.target.value || undefined)} className="glass-select" style={selectCls}>
                   {opts.map((o) => <option key={o.label} value={o.value ?? ""}>{o.label}</option>)}
                 </select>
               </div>
@@ -261,10 +309,10 @@ export function VideoConverter() {
         </div>
         {/* Segmented control */}
         <div className="seg-ctrl">
-          <button className={mode === "single" ? "active" : ""} onClick={() => { setMode("single"); reset(); }}>
+          <button disabled={isConverting} className={mode === "single" ? "active" : ""} onClick={() => { setMode("single"); reset(); }}>
             {t("batch.single")}
           </button>
-          <button className={mode === "batch" ? "active" : ""} onClick={() => { setMode("batch"); reset(); }}>
+          <button disabled={isConverting} className={mode === "batch" ? "active" : ""} onClick={() => { setMode("batch"); reset(); }}>
             {t("batch.toggle")}
           </button>
         </div>
@@ -278,21 +326,37 @@ export function VideoConverter() {
             allowedExtensions={[...VIDEO_FORMATS]}
             disabled={isConverting}
             hasFile={!!inputPath}
+            formats={VIDEO_FORMATS.join(" · ").toUpperCase()}
           >
             {inputPath ? (
               <>
-                <div style={{ width: "52px", height: "52px", borderRadius: "12px", background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)", fontWeight: 700, fontSize: "10px", letterSpacing: "0.06em", flexShrink: 0 }}>VID</div>
-                <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)", marginBottom: "6px" }}>
+                <div style={{ width: "56px", height: "56px", borderRadius: "14px", background: "var(--accent-dim)", border: "1px solid rgba(139, 122, 255, 0.25)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)", fontWeight: 700, fontSize: "10px", letterSpacing: "0.06em", flexShrink: 0 }}>VID</div>
+                <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                  <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)" }}>
                     {inputPath.split(/[\\/]/).pop()}
                   </p>
                   {mediaInfo && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", fontSize: "11px", color: "var(--text-sub)" }}>
-                      {mediaInfo.duration > 0 && <span>{formatDuration(mediaInfo.duration)}</span>}
-                      {mediaInfo.width && mediaInfo.height && <span>{mediaInfo.width}×{mediaInfo.height}</span>}
-                      {mediaInfo.video_codec && <span>{mediaInfo.video_codec}</span>}
-                      <span>{formatFileSize(mediaInfo.file_size)}</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "center", fontSize: "11px" }}>
+                      {mediaInfo.duration > 0 && <span className="glass-badge">{formatDuration(mediaInfo.duration)}</span>}
+                      {mediaInfo.width && mediaInfo.height && <span className="glass-badge">{mediaInfo.width}×{mediaInfo.height}</span>}
+                      {mediaInfo.video_codec && <span className="glass-badge">{mediaInfo.video_codec}</span>}
+                      {mediaInfo.bitrate && <span className="glass-badge">{mediaInfo.bitrate}</span>}
+                      <span className="glass-badge">{formatFileSize(mediaInfo.file_size)}</span>
                     </div>
+                  )}
+                  {outputPath && (
+                    <span
+                      className="glass-badge"
+                      style={{
+                        fontSize: "11px",
+                        color: "var(--accent)",
+                        background: "var(--accent-dim)",
+                        borderColor: "rgba(139, 122, 255, 0.3)",
+                      }}
+                      title={outputPath}
+                    >
+                      → {t("converter.outputPreview", { name: outputPath.split(/[\\/]/).pop() })}
+                    </span>
                   )}
                 </div>
                 {!isConverting && <span style={{ fontSize: "11px", color: "var(--accent)" }}>{t("dropzone.fileLoaded")}</span>}
@@ -328,11 +392,30 @@ export function VideoConverter() {
             />
           )}
 
-          <MediaBatchFileList
-            files={batchFiles}
-            results={results}
-            onRemove={(p) => setBatchFiles((prev) => prev.filter((f) => f !== p))}
-          />
+          {batchFiles.length > 0 && !isDone && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span className="glass-badge" style={{ fontSize: "11px", fontWeight: 600 }}>
+                  {t("batch.fileCount", { count: batchFiles.length })}
+                </span>
+                {!isConverting && !isDone && (
+                  <button
+                    className="btn-danger"
+                    style={{ padding: "5px 10px", fontSize: "11px" }}
+                    onClick={() => { setBatchFiles([]); reset(); }}
+                  >
+                    <IcnTrash size={13} />
+                    {t("converter.clear")}
+                  </button>
+                )}
+              </div>
+              <MediaBatchFileList
+                files={batchFiles}
+                results={results}
+                onRemove={!isConverting ? (p) => setBatchFiles((prev) => prev.filter((f) => f !== p)) : undefined}
+              />
+            </div>
+          )}
 
           {batchFiles.length > 0 && !isConverting && !isDone && (
             <>
@@ -364,12 +447,13 @@ export function VideoConverter() {
                 {results.some((r) => r.success) && (
                   <button className="btn-ghost" onClick={async () => {
                     const first = results.find((r) => r.success);
-                    if (first) await invoke("open_folder", { filePath: first.output } as unknown as Record<string, unknown>);
+                    if (first) await invoke("open_folder", { file_path: first.output });
                   }}>
                     <IcnFolder size={14} />{t("result.openFolder")}
                   </button>
                 )}
                 <button className="btn-primary" onClick={() => { reset(); setBatchFiles([]); }}>
+                  <IcnRefresh size={14} />
                   {t("result.newConversion")}
                 </button>
               </div>
@@ -381,7 +465,7 @@ export function VideoConverter() {
       {status === "error" && error && (
         <div style={{ display: "flex", gap: "8px", color: "var(--error)", fontSize: "13px", background: "rgba(248,113,113,0.06)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
           <IcnX size={15} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: "1px" }} />
-          <span>{t("converter.error")}: {error}</span>
+          <span>{t("converter.error")}: {error === "busy" ? t("converter.busy") : error}</span>
         </div>
       )}
     </div>

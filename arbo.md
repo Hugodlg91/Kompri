@@ -17,7 +17,7 @@ MediaForge/
 ├── package.json                        # Dépendances npm + scripts (dev/build/test/tauri)
 ├── package-lock.json                   # Lockfile npm
 │
-├── DEVLOG.md                           # Journal de développement (étapes 1-12)
+├── DEVLOG.md                           # Journal de développement (étapes 1-14)
 ├── README.md                           # Documentation générale du projet
 ├── arbo.md                             # Ce fichier — arborescence du projet
 │
@@ -26,15 +26,18 @@ MediaForge/
 │
 ├── src/                                # Frontend React + TypeScript
 │   ├── main.tsx                        # Point d'entrée React (GlobalErrorBoundary → App)
-│   ├── App.tsx                         # Routage principal (TitleBar + Sidebar + pages)
+│   ├── App.tsx                         # Routage principal (TitleBar + Sidebar + pages + raccourcis)
 │   ├── i18n.ts                         # Configuration i18next (5 langues)
-│   ├── index.css                       # Design system global (tokens CSS, utilitaires)
+│   ├── index.css                       # Design system global Liquid Glass (tokens CSS, utilitaires)
 │   ├── setupTests.ts                   # Setup Vitest (jest-dom matchers)
 │   ├── vite-env.d.ts                   # Types d'environnement Vite
 │   │
-│   ├── __tests__/                      # Tests unitaires Vitest
+│   ├── __tests__/                      # Tests unitaires Vitest (40 tests)
 │   │   ├── path.test.ts                # 16 tests : buildOutputPath / formatFileSize / formatDuration
-│   │   └── useDragDrop.test.ts         # 7 tests : filtrage extensions drag & drop
+│   │   ├── useDragDrop.test.ts         # 7 tests : filtrage extensions drag & drop
+│   │   ├── useConversion.test.ts       # 6 tests : concurrence & annulation des conversions
+│   │   ├── navigation.test.tsx         # 6 tests : persistance inter-onglets, raccourcis Ctrl+1..5
+│   │   └── titlebar.test.tsx           # 5 tests : contrôles de fenêtre Liquid Glass (close/min/max)
 │   │
 │   ├── components/
 │   │   ├── GlobalErrorBoundary.tsx     # Error boundary global (récupération crash React)
@@ -44,31 +47,32 @@ MediaForge/
 │   │   │   ├── VideoConverter.tsx      # Convertisseur vidéo (single + batch)
 │   │   │   ├── AudioConverter.tsx      # Convertisseur audio (single + batch)
 │   │   │   ├── ImageConverter.tsx      # Convertisseur image (single + batch + resize)
-│   │   │   └── ProgressBar.tsx         # Barre de progression + bouton annuler
+│   │   │   └── ProgressBar.tsx         # Barre de progression Liquid Glass + bouton annuler
 │   │   │
 │   │   ├── History/
 │   │   │   ├── HistoryPage.tsx         # Page Historique (wrapper)
-│   │   │   └── History.tsx             # Liste des conversions passées
+│   │   │   └── History.tsx             # Liste des conversions (recherche, filtres, suppression)
 │   │   │
 │   │   ├── Layout/
-│   │   │   ├── Sidebar.tsx             # Navigation latérale principale
-│   │   │   └── TitleBar.tsx            # Barre de titre (thème, langue, macOS dots)
+│   │   │   ├── Sidebar.tsx             # Navigation latérale Liquid Glass
+│   │   │   └── TitleBar.tsx            # Barre de titre Liquid Glass (contrôles fenêtre, thème, langue)
 │   │   │
 │   │   ├── Settings/
 │   │   │   └── SettingsPage.tsx        # Page Paramètres (thème, langue, formats...)
 │   │   │
 │   │   └── ui/                         # Composants réutilisables
-│   │       ├── Icons.tsx               # Icônes SVG (Image, Video, Audio, Upload…)
-│   │       ├── DropZone.tsx            # Zone drag & drop fichiers
-│   │       └── ConversionResult.tsx    # Affichage résultat post-conversion
+│   │       ├── Icons.tsx               # Icônes SVG (20 icônes stroke-based)
+│   │       ├── DropZone.tsx            # Zone drag & drop fichiers Liquid Glass
+│   │       └── ConversionResult.tsx    # Affichage résultat post-conversion (ouvrir fichier/dossier)
 │   │
 │   ├── context/
-│   │   └── SettingsContext.tsx         # Context React pour les paramètres globaux
+│   │   ├── SettingsContext.tsx         # Context React pour les paramètres globaux
+│   │   └── SectionActiveContext.ts     # Context d'isolation drag & drop de l'onglet actif
 │   │
 │   ├── hooks/
 │   │   ├── useConversion.ts            # Conversion vidéo & audio (single + batch)
 │   │   ├── useImageConversion.ts       # Conversion images (single + batch + resize)
-│   │   ├── useHistory.ts               # Chargement / vidage de l'historique
+│   │   ├── useHistory.ts               # Chargement / suppression / vidage de l'historique
 │   │   ├── useSettings.ts              # Chargement / sauvegarde des paramètres
 │   │   └── useDragDrop.ts              # Drag & drop natif Tauri (filtre extensions)
 │   │
@@ -87,14 +91,16 @@ MediaForge/
     ├── Cargo.toml                      # Dépendances Rust
     ├── Cargo.lock                      # Lockfile Cargo
     ├── build.rs                        # Script de build Tauri
-    ├── tauri.conf.json                 # Config Tauri (bundle v1.0.0, icônes, NSIS...)
+    ├── tauri.conf.json                 # Config Tauri (decorations: false, bundle v1.0.0, NSIS/MSI...)
     │
     ├── src/
     │   ├── main.rs                     # Point d'entrée Rust
-    │   └── lib.rs                      # Commandes Tauri + Drop anti-zombie + 11 tests unitaires
+    │   ├── lib.rs                      # Commandes Tauri + Drop anti-zombie + tests unitaires
+    │   ├── job_tests.rs                # Tests unitaires d'isolation et d'annulation des jobs
+    │   └── output_tests.rs             # Tests unitaires d'intégrité des fichiers de sortie
     │
     ├── capabilities/
-    │   └── default.json                # Permissions Tauri (shell, dialog, opener, store)
+    │   └── default.json                # Permissions Tauri (window, shell, dialog, opener, store)
     │
     ├── binaries/                       # Sidecars FFmpeg (non versionnés)
     │   └── README.md                   # Instructions de téléchargement FFmpeg (gyan.dev)

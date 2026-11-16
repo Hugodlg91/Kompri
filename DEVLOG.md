@@ -238,6 +238,30 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
 - [x] **CHANGELOG.md** créé à la racine avec le contenu v1.0.0
 - [x] **FUNDING.yml** : `.github/FUNDING.yml` créé — bouton "Sponsor" Ko-fi (`VladimirWRLD`) affiché sur le repo GitHub
 
+### ✅ Étape 14 — Refonte UI Liquid Glass & Améliorations fonctionnelles (TERMINÉE)
+- [x] **Architecture Multi-Agents** : orchestration de 3 sous-agents spécialisés en parallèle (`liquid-glass-shell`, `backend-history-settings`, `converters-ux`) sur des périmètres de fichiers isolés
+- [x] **Design System Liquid Glass (`src/index.css`)** :
+  - Surfaces translucides réfractives (`--surface`, `--surface2`, `--surface3`, `--glass-blur: blur(24px) saturate(180%)`) et bordures spéculaires (`--glass-highlight`, `--glass-edge`) en mode sombre (*Liquid Obsidian*) et clair (*Iridescent Pearl*)
+  - Arrière-plan ambiant animé (`.ambient-canvas`, `.ambient-orb-1..3` avec `@keyframes float-orb`)
+  - Refonte des classes `.card`, `.glass-card`, `.glass-panel`, `.btn-primary`, `.btn-ghost`, `.btn-danger`, `.seg-ctrl`, `.fmt-pill` et ajout de `.glass-input`, `.glass-select`, `.glass-badge`
+- [x] **Shell & Iconographie (`App.tsx`, `TitleBar.tsx`, `Sidebar.tsx`, `Icons.tsx`, `tauri.conf.json`, `capabilities/default.json`)** :
+  - Ajout de 8 icônes SVG (`IcnSun`, `IcnMoon`, `IcnSearch`, `IcnTrash`, `IcnExternalLink`, `IcnSparkles`, `IcnSliders`, `IcnFile`)
+  - Raccourcis clavier globaux `Ctrl+1..5` / `Cmd+1..5` pour naviguer instantanément entre Image, Vidéo, Audio, Historique et Paramètres
+  - **Fenêtre sans bordure OS native (`decorations: false`)** dans `tauri.conf.json` + permissions Tauri v2 (`core:window:allow-close`, `allow-minimize`, `allow-toggle-maximize`, `allow-maximize`, `allow-unmaximize`, `allow-is-maximized`, `allow-start-dragging`) dans `capabilities/default.json`
+  - **Contrôles de fenêtre interactifs dans `TitleBar.tsx`** : 3 boutons fonctionnels (Fermer `#ff5f57`, Réduire `#febc2e`, Agrandir `#28c840`) via `getCurrentWindow()` avec micro-glyphes SVG (`×`, `−`, `+`) au survol, double-clic sur la barre pour agrandir/restaurer, et sélecteur de thème SVG (`IcnSun` / `IcnMoon`)
+- [x] **Backend Rust & Historique enrichi (`lib.rs`, `useHistory.ts`, `History.tsx`)** :
+  - Nouvelle commande Tauri `remove_history_item` pour supprimer une entrée individuelle de `history.json`
+  - Calcul automatique de `file_size` via `std::fs::metadata` + `format_byte_size` lors de l'enregistrement dans `add_history_item`
+  - Barre de recherche instantanée (nom de fichier / format) et filtres par type de média (*Tous / Image / Vidéo / Audio*) avec compteurs dans `History.tsx`
+  - Suppression du warning de dépréciation Rust (`image::io::Reader` → `image::ImageReader`)
+- [x] **Convertisseurs & UX (`ImageConverter.tsx`, `VideoConverter.tsx`, `AudioConverter.tsx`, `DropZone.tsx`, `ConversionResult.tsx`, `ProgressBar.tsx`)** :
+  - **Fix bug `open_folder`** : correction du paramètre `{ file_path: ... }` (snake_case requis par `#[tauri::command(rename_all = "snake_case")]`) dans `ConversionResult.tsx`, `ImageConverter.tsx`, `VideoConverter.tsx` et `AudioConverter.tsx`
+  - Bouton **"Ouvrir le fichier"** (`open_file`) ajouté directement dans `ConversionResult.tsx` et sur les lignes de résultats Batch
+  - Aperçu du nom de fichier de sortie (`→ fichier_converted.ext`) avant conversion et métadonnées en capsules `.glass-badge`
+  - Barre d'outils Batch avec compteur de fichiers et bouton **"Vider"** pour réinitialiser la file en un clic
+- [x] **Traductions i18n (5 langues)** : ajout des clés `converter.localOnly`, `converter.outputPreview`, `history.searchPlaceholder`, `history.filterAll`, `history.deleteItem`, `history.noResults`, `result.openFile`, `window.close/minimize/maximize/restore` dans `fr.json`, `en.json`, `es.json`, `de.json`, `pt.json`
+- [x] **Tests & Build** : `cargo test` **32/32 tests passent (0 warning)** — `vitest` **40/40 tests passent** (incluant `titlebar.test.tsx`) — `tsc --noEmit` & `tauri build` **0 erreur**
+
 ---
 
 ## Décisions techniques prises

@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 use tauri_plugin_shell::{
@@ -12,6 +13,48 @@ use tauri_plugin_store::StoreExt;
 #[derive(Clone)]
 pub struct AppState {
     pub current_process: Arc<Mutex<Option<CommandChild>>>,
+    /// Held for a whole FFmpeg job (single file or batch).
+    pub ffmpeg_busy: Arc<AtomicBool>,
+    /// Set by cancel_conversion, cleared when the next FFmpeg job starts.
+    pub cancel_requested: Arc<AtomicBool>,
+    /// Held for a whole image job (single file or batch).
+    pub image_busy: Arc<AtomicBool>,
+}
+
+/// Stable error code returned when a job of the same kind is already running.
+/// The frontend translates it.
+pub const BUSY_ERROR: &str = "busy";
+
+/// Exclusive claim on a job slot, released when dropped (also on early return).
+pub struct JobGuard(Arc<AtomicBool>);
+
+impl JobGuard {
+    /// Refuse a second job explicitly instead of replacing the running one.
+    pub fn try_acquire(flag: &Arc<AtomicBool>) -> Result<Self, String> {
+        flag.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map(|_| JobGuard(Arc::clone(flag)))
+            .map_err(|_| BUSY_ERROR.to_string())
+    }
+}
+
+impl Drop for JobGuard {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
+/// Claim the FFmpeg slot and clear any cancellation left from a previous job.
+fn start_ffmpeg_job(state: &AppState) -> Result<JobGuard, String> {
+    // Share the process mutex with cancellation: publishing a new job and
+    // clearing the previous cancellation must be one indivisible transition.
+    let _process = state.current_process.lock().map_err(|e| e.to_string())?;
+    let guard = JobGuard::try_acquire(&state.ffmpeg_busy)?;
+    state.cancel_requested.store(false, Ordering::Release);
+    Ok(guard)
+}
+
+fn cancelled_error() -> String {
+    "cancelled".to_string()
 }
 
 /// Anti-zombie: automatically kill any live FFmpeg process when the
@@ -76,6 +119,18 @@ fn format_secs(secs: f64) -> String {
     format!("{:02}:{:02}:{:02}", h, m, s)
 }
 
+fn format_byte_size(bytes: u64) -> String {
+    if bytes < 1024 {
+        format!("{} B", bytes)
+    } else if bytes < 1024 * 1024 {
+        format!("{:.1} KB", bytes as f64 / 1024.0)
+    } else if bytes < 1024 * 1024 * 1024 {
+        format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
+    } else {
+        format!("{:.2} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    }
+}
+
 // ─── Core FFmpeg runner ───────────────────────────────────────────────────────
 
 /// Spawn ffmpeg with the given args, stream progress events, and return the
@@ -83,9 +138,13 @@ fn format_secs(secs: f64) -> String {
 async fn run_ffmpeg(
     app: tauri::AppHandle,
     process_slot: Arc<Mutex<Option<CommandChild>>>,
+    cancel_requested: Arc<AtomicBool>,
     args: Vec<String>,
     output_path: String,
 ) -> Result<String, String> {
+    if cancel_requested.load(Ordering::Acquire) {
+        return Err(cancelled_error());
+    }
     ensure_output_available(&output_path)?;
     let (mut rx, child) = app
         .shell()
@@ -97,7 +156,12 @@ async fn run_ffmpeg(
 
     {
         let mut guard = process_slot.lock().map_err(|e| e.to_string())?;
-        *guard = Some(child);
+        // A cancel that arrived while spawning found an empty slot: honour it now.
+        if cancel_requested.load(Ordering::Acquire) {
+            let _ = child.kill();
+        } else {
+            *guard = Some(child);
+        }
     }
 
     let mut total_duration = 0.0f64;
@@ -154,6 +218,10 @@ async fn run_ffmpeg(
                 let mut guard = process_slot.lock().map_err(|e| e.to_string())?;
                 *guard = None;
 
+                if cancel_requested.load(Ordering::Acquire) {
+                    return Err(cancelled_error());
+                }
+
                 // Bundled FFmpeg can return code 0 when -n refuses a file.
                 // Do not report that refusal as a successful conversion.
                 if stderr_buf.contains("already exists. Exiting.") {
@@ -173,7 +241,7 @@ async fn run_ffmpeg(
                     Ok(output_path)
                 } else if status.code == Some(255) || status.code == Some(-1) {
                     // Killed by cancel_conversion
-                    Err("cancelled".to_string())
+                    Err(cancelled_error())
                 } else {
                     Err(format!(
                         "FFmpeg exited with code {:?}",
@@ -229,8 +297,10 @@ async fn convert_video(
     // Refuse existing outputs, including files created after our preflight check.
     args.extend(["-nostdin".into(), "-n".into(), output_path.clone()]);
 
+    let _job = start_ffmpeg_job(&state)?;
     let slot = Arc::clone(&state.current_process);
-    run_ffmpeg(app, slot, args, output_path).await
+    let cancel = Arc::clone(&state.cancel_requested);
+    run_ffmpeg(app, slot, cancel, args, output_path).await
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -266,16 +336,27 @@ async fn convert_audio(
 
     args.extend(["-nostdin".into(), "-n".into(), output_path.clone()]);
 
+    let _job = start_ffmpeg_job(&state)?;
     let slot = Arc::clone(&state.current_process);
-    run_ffmpeg(app, slot, args, output_path).await
+    let cancel = Arc::clone(&state.cancel_requested);
+    run_ffmpeg(app, slot, cancel, args, output_path).await
 }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn cancel_conversion(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    request_cancellation(&state)
+}
+
+fn request_cancellation(state: &AppState) -> Result<(), String> {
     let mut guard = state
         .current_process
         .lock()
         .map_err(|e| e.to_string())?;
+    // Serialize with start_ffmpeg_job so a fresh cancellation cannot be
+    // overwritten by its initialization, or race with registering the child.
+    if state.ffmpeg_busy.load(Ordering::Acquire) {
+        state.cancel_requested.store(true, Ordering::Release);
+    }
     if let Some(child) = guard.take() {
         child.kill().map_err(|e| e.to_string())?;
     }
@@ -543,12 +624,14 @@ fn process_single_image(
 #[tauri::command(rename_all = "snake_case")]
 async fn convert_image(
     app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
     input_path: String,
     output_path: String,
     format: String,
     quality: Option<u8>,
     resize: Option<ResizeOptions>,
 ) -> Result<String, String> {
+    let _job = JobGuard::try_acquire(&state.image_busy)?;
     let out = output_path.clone();
 
     tauri::async_runtime::spawn_blocking(move || {
@@ -571,11 +654,13 @@ async fn convert_image(
 #[tauri::command(rename_all = "snake_case")]
 async fn convert_images_batch(
     app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
     files: Vec<BatchImageItem>,
     format: String,
     quality: Option<u8>,
     resize: Option<ResizeOptions>,
 ) -> Result<Vec<BatchResult>, String> {
+    let _job = JobGuard::try_acquire(&state.image_busy)?;
     let total = files.len();
     let mut results: Vec<BatchResult> = Vec::with_capacity(total);
 
@@ -630,7 +715,7 @@ async fn get_image_info(input_path: String) -> Result<ImageInfo, String> {
             .map(|m| m.len())
             .unwrap_or(0);
 
-        let reader = image::io::Reader::open(&input_path)
+        let reader = image::ImageReader::open(&input_path)
             .map_err(|e| format!("Impossible d'ouvrir : {}", e))?
             .with_guessed_format()
             .map_err(|e| format!("Format non reconnu : {}", e))?;
@@ -678,10 +763,16 @@ async fn convert_video_batch(
     codec: Option<String>,
     bitrate: Option<String>,
 ) -> Result<Vec<BatchResult>, String> {
+    let _job = start_ffmpeg_job(&state)?;
     let total = files.len();
     let mut results: Vec<BatchResult> = Vec::with_capacity(total);
 
     for (i, item) in files.into_iter().enumerate() {
+        // Also catches a cancel issued between two files, when no process runs.
+        if state.cancel_requested.load(Ordering::Acquire) {
+            return Err(cancelled_error());
+        }
+
         let file_name = std::path::Path::new(&item.input_path)
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
@@ -724,9 +815,10 @@ async fn convert_video_batch(
         args.extend(["-nostdin".into(), "-n".into(), item.output_path.clone()]);
 
         let slot = Arc::clone(&state.current_process);
-        let result = run_ffmpeg(app.clone(), slot, args, item.output_path.clone()).await;
+        let cancel = Arc::clone(&state.cancel_requested);
+        let result = run_ffmpeg(app.clone(), slot, cancel, args, item.output_path.clone()).await;
 
-        let cancelled = matches!(result, Err(ref e) if e == "cancelled");
+        let cancelled = matches!(result, Err(ref e) if *e == cancelled_error());
         results.push(BatchResult {
             input: item.input_path,
             output: item.output_path,
@@ -735,7 +827,7 @@ async fn convert_video_batch(
         });
 
         if cancelled {
-            return Err("cancelled".to_string());
+            return Err(cancelled_error());
         }
     }
 
@@ -763,10 +855,16 @@ async fn convert_audio_batch(
     sample_rate: Option<String>,
     normalize: bool,
 ) -> Result<Vec<BatchResult>, String> {
+    let _job = start_ffmpeg_job(&state)?;
     let total = files.len();
     let mut results: Vec<BatchResult> = Vec::with_capacity(total);
 
     for (i, item) in files.into_iter().enumerate() {
+        // Also catches a cancel issued between two files, when no process runs.
+        if state.cancel_requested.load(Ordering::Acquire) {
+            return Err(cancelled_error());
+        }
+
         let file_name = std::path::Path::new(&item.input_path)
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
@@ -806,9 +904,10 @@ async fn convert_audio_batch(
         args.extend(["-nostdin".into(), "-n".into(), item.output_path.clone()]);
 
         let slot = Arc::clone(&state.current_process);
-        let result = run_ffmpeg(app.clone(), slot, args, item.output_path.clone()).await;
+        let cancel = Arc::clone(&state.cancel_requested);
+        let result = run_ffmpeg(app.clone(), slot, cancel, args, item.output_path.clone()).await;
 
-        let cancelled = matches!(result, Err(ref e) if e == "cancelled");
+        let cancelled = matches!(result, Err(ref e) if *e == cancelled_error());
         results.push(BatchResult {
             input: item.input_path,
             output: item.output_path,
@@ -817,7 +916,7 @@ async fn convert_audio_batch(
         });
 
         if cancelled {
-            return Err("cancelled".to_string());
+            return Err(cancelled_error());
         }
     }
 
@@ -941,7 +1040,12 @@ async fn get_history(app: tauri::AppHandle) -> Result<Vec<HistoryItem>, String> 
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn add_history_item(app: tauri::AppHandle, item: HistoryItem) -> Result<(), String> {
+async fn add_history_item(app: tauri::AppHandle, mut item: HistoryItem) -> Result<(), String> {
+    if item.file_size.is_none() && !item.output_path.is_empty() {
+        if let Ok(meta) = std::fs::metadata(&item.output_path) {
+            item.file_size = Some(format_byte_size(meta.len()));
+        }
+    }
     let store = app.store("history.json").map_err(|e| e.to_string())?;
     let mut items: Vec<HistoryItem> = store
         .get(HISTORY_KEY)
@@ -949,6 +1053,19 @@ async fn add_history_item(app: tauri::AppHandle, item: HistoryItem) -> Result<()
         .unwrap_or_default();
     items.insert(0, item);
     items.truncate(HISTORY_MAX);
+    store.set(HISTORY_KEY, serde_json::to_value(&items).map_err(|e| e.to_string())?);
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn remove_history_item(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    let store = app.store("history.json").map_err(|e| e.to_string())?;
+    let mut items: Vec<HistoryItem> = store
+        .get(HISTORY_KEY)
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    items.retain(|item| item.id != id);
     store.set(HISTORY_KEY, serde_json::to_value(&items).map_err(|e| e.to_string())?);
     store.save().map_err(|e| e.to_string())?;
     Ok(())
@@ -977,6 +1094,9 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AppState {
             current_process: Arc::new(Mutex::new(None)),
+            ffmpeg_busy: Arc::new(AtomicBool::new(false)),
+            cancel_requested: Arc::new(AtomicBool::new(false)),
+            image_busy: Arc::new(AtomicBool::new(false)),
         })
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
@@ -997,6 +1117,7 @@ pub fn run() {
             save_settings,
             get_history,
             add_history_item,
+            remove_history_item,
             clear_history,
             open_file,
         ])
@@ -1066,6 +1187,19 @@ mod tests {
         assert_eq!(format_secs(3661.0), "01:01:01");
     }
 
+    // ── format_byte_size ──────────────────────────────────────────────────────
+
+    #[test]
+    fn test_format_byte_size() {
+        assert_eq!(format_byte_size(0), "0 B");
+        assert_eq!(format_byte_size(512), "512 B");
+        assert_eq!(format_byte_size(1024), "1.0 KB");
+        assert_eq!(format_byte_size(1536), "1.5 KB");
+        assert_eq!(format_byte_size(1024 * 1024), "1.0 MB");
+        assert_eq!(format_byte_size(5 * 1024 * 1024 + 524_288), "5.5 MB");
+        assert_eq!(format_byte_size(1024 * 1024 * 1024), "1.00 GB");
+    }
+
     // ── HistoryItem defaults (serde round-trip) ───────────────────────────────
 
     #[test]
@@ -1118,3 +1252,6 @@ mod tests {
 
 #[cfg(test)]
 mod output_tests;
+
+#[cfg(test)]
+mod job_tests;

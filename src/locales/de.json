@@ -33,8 +33,11 @@
     "sampleRate": "Abtastrate",
     "cancel": "Abbrechen",
     "done": "Konvertierung abgeschlossen!",
+    "busy": "Eine andere Konvertierung dieser Art läuft bereits. Warten Sie, bis sie fertig ist, oder brechen Sie sie ab.",
     "error": "Fehler",
-    "convert_another": "Weitere Datei konvertieren"
+    "convert_another": "Weitere Datei konvertieren",
+    "localOnly": "100% lokal — Offline-Verarbeitung",
+    "outputPreview": "Ausgabe: {{name}}"
   },
   "status": {
     "ready": "Bereit",
@@ -49,6 +52,10 @@
     "clearConfirm": "Bestätigen?",
     "openFile": "Datei öffnen",
     "openFolder": "Ordner öffnen",
+    "searchPlaceholder": "Datei oder Format suchen...",
+    "filterAll": "Alle",
+    "deleteItem": "Aus Verlauf entfernen",
+    "noResults": "Keine passenden Konvertierungen gefunden.",
     "mediaType": {
       "image": "Bild",
       "video": "Video",
@@ -105,6 +112,7 @@
   },
   "result": {
     "success": "Konvertierung abgeschlossen!",
+    "openFile": "Datei öffnen",
     "openFolder": "Ordner öffnen",
     "newConversion": "Neue Konvertierung"
   },
@@ -123,5 +131,11 @@
     "description": "Die Anwendung hat ein unerwartetes Problem festgestellt.",
     "reload": "Anwendung neu starten",
     "report": "Wenn das Problem weiterhin besteht, zögern Sie nicht, uns zu kontaktieren."
+  },
+  "window": {
+    "close": "Schließen",
+    "minimize": "Minimieren",
+    "maximize": "Maximieren",
+    "restore": "Wiederherstellen"
   }
 }
