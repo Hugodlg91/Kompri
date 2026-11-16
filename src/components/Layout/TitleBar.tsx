@@ -268,7 +268,7 @@ export function TitleBar() {
                 position: "absolute",
                 top: "calc(100% + 6px)",
                 right: 0,
-                background: "var(--surface)",
+                background: "var(--popover-bg, var(--surface-solid))",
                 backdropFilter: "var(--glass-blur)",
                 WebkitBackdropFilter: "var(--glass-blur)",
                 border: "1px solid var(--border2)",
@@ -277,7 +277,7 @@ export function TitleBar() {
                 display: "flex",
                 flexDirection: "column",
                 gap: "2px",
-                zIndex: 100,
+                zIndex: 9999,
                 minWidth: "68px",
                 boxShadow: "var(--shadow), inset 0 1px 0 var(--glass-highlight)",
               }}

@@ -42,6 +42,7 @@
   --surface2:        rgba(32, 32, 48, 0.52);
   --surface3:        rgba(44, 44, 66, 0.48);
   --surface-solid:   #14141f;
+  --popover-bg:      rgba(18, 18, 28, 0.94);
   --border:          rgba(255, 255, 255, 0.09);
   --border2:         rgba(255, 255, 255, 0.15);
   --glass-highlight: rgba(255, 255, 255, 0.18);
@@ -68,6 +69,7 @@
   --surface2:        rgba(255, 255, 255, 0.48);
   --surface3:        rgba(240, 239, 250, 0.55);
   --surface-solid:   #ffffff;
+  --popover-bg:      rgba(255, 255, 255, 0.95);
   --border:          rgba(255, 255, 255, 0.65);
   --border2:         rgba(120, 115, 160, 0.22);
   --glass-highlight: rgba(255, 255, 255, 0.85);
@@ -256,6 +258,12 @@ button { border: none; background: none; cursor: pointer; font: inherit; }
   border-radius: 16px;
   padding: 20px;
   box-shadow: var(--shadow-sm);
+}
+
+.card:focus-within,
+.glass-card:focus-within {
+  position: relative;
+  z-index: 40;
 }
 
 .glass-panel {

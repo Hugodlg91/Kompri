@@ -241,9 +241,10 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
 ### ✅ Étape 14 — Refonte UI Liquid Glass & Améliorations fonctionnelles (TERMINÉE)
 - [x] **Architecture Multi-Agents** : orchestration de 3 sous-agents spécialisés en parallèle (`liquid-glass-shell`, `backend-history-settings`, `converters-ux`) sur des périmètres de fichiers isolés
 - [x] **Design System Liquid Glass (`src/index.css`)** :
-  - Surfaces translucides réfractives (`--surface`, `--surface2`, `--surface3`, `--glass-blur: blur(24px) saturate(180%)`) et bordures spéculaires (`--glass-highlight`, `--glass-edge`) en mode sombre (*Liquid Obsidian*) et clair (*Iridescent Pearl*)
+  - Surfaces translucides réfractives (`--surface`, `--surface2`, `--surface3`, `--popover-bg`, `--glass-blur: blur(24px) saturate(180%)`) et bordures spéculaires (`--glass-highlight`, `--glass-edge`) en mode sombre (*Liquid Obsidian*) et clair (*Iridescent Pearl*)
   - Arrière-plan ambiant animé (`.ambient-canvas`, `.ambient-orb-1..3` avec `@keyframes float-orb`)
   - Refonte des classes `.card`, `.glass-card`, `.glass-panel`, `.btn-primary`, `.btn-ghost`, `.btn-danger`, `.seg-ctrl`, `.fmt-pill` et ajout de `.glass-input`, `.glass-select`, `.glass-badge`
+  - **Fix stacking context des menus déroulants (`SettingsPage.tsx`, `TitleBar.tsx`, `index.css`)** : rendu des menus `PillSelect` via `createPortal(..., document.body)` en `position: fixed; z-index: 9999` avec calcul dynamique `getBoundingClientRect()` et fond `--popover-bg` haute lisibilité pour éviter le masquage par les cartes `backdrop-filter` suivantes
 - [x] **Shell & Iconographie (`App.tsx`, `TitleBar.tsx`, `Sidebar.tsx`, `Icons.tsx`, `tauri.conf.json`, `capabilities/default.json`)** :
   - Ajout de 8 icônes SVG (`IcnSun`, `IcnMoon`, `IcnSearch`, `IcnTrash`, `IcnExternalLink`, `IcnSparkles`, `IcnSliders`, `IcnFile`)
   - Raccourcis clavier globaux `Ctrl+1..5` / `Cmd+1..5` pour naviguer instantanément entre Image, Vidéo, Audio, Historique et Paramètres
