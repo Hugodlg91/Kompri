@@ -71,7 +71,15 @@ export function useSettings() {
       const next = { ...settings, ...partial } as AppSettings;
       setSettings(next);
       if (partial.theme !== undefined) applyTheme(partial.theme);
-      if (partial.language !== undefined) i18n.changeLanguage(partial.language);
+      if (partial.language !== undefined) {
+        i18n.changeLanguage(partial.language);
+        if (next.context_menu_enabled) {
+          invoke("set_context_menu_enabled", {
+            enabled: true,
+            language: partial.language,
+          }).catch(() => {});
+        }
+      }
       await invoke("save_settings", {
         settings: next,
       } as unknown as Record<string, unknown>);

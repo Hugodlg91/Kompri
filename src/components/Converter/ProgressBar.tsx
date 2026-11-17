@@ -36,7 +36,7 @@ export function ProgressBar({
       {/* Top row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
         <span className="truncate" style={{ maxWidth: "70%", fontSize: "12px", color: "var(--text-sub)", fontWeight: 500 }}>
-          {currentFile ?? currentTime ?? "—"}
+          {currentFile || currentTime || "—"}
         </span>
         <div style={{ display: "flex", gap: "10px", alignItems: "center", flexShrink: 0 }}>
           {showPass && (

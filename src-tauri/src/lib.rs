@@ -311,7 +311,7 @@ async fn convert_video(
 ) -> Result<String, String> {
     let mut args: Vec<String> = vec![
         "-i".into(),
-        input_path,
+        target_size::safe_media_path(&input_path),
         // machine-readable progress to stdout
         "-progress".into(),
         "pipe:1".into(),
@@ -336,7 +336,11 @@ async fn convert_video(
     }
 
     // Refuse existing outputs, including files created after our preflight check.
-    args.extend(["-nostdin".into(), "-n".into(), output_path.clone()]);
+    args.extend([
+        "-nostdin".into(),
+        "-n".into(),
+        target_size::safe_media_path(&output_path),
+    ]);
 
     let _job = start_ffmpeg_job(&state)?;
     let slot = Arc::clone(&state.current_process);
@@ -356,7 +360,7 @@ async fn convert_audio(
 ) -> Result<String, String> {
     let mut args: Vec<String> = vec![
         "-i".into(),
-        input_path,
+        target_size::safe_media_path(&input_path),
         "-progress".into(),
         "pipe:1".into(),
         "-nostats".into(),
@@ -375,7 +379,11 @@ async fn convert_audio(
         args.extend(["-af".into(), "loudnorm".into()]);
     }
 
-    args.extend(["-nostdin".into(), "-n".into(), output_path.clone()]);
+    args.extend([
+        "-nostdin".into(),
+        "-n".into(),
+        target_size::safe_media_path(&output_path),
+    ]);
 
     let _job = start_ffmpeg_job(&state)?;
     let slot = Arc::clone(&state.current_process);
@@ -404,6 +412,88 @@ fn request_cancellation(state: &AppState) -> Result<(), String> {
     Ok(())
 }
 
+fn parse_ffprobe_json(v: &serde_json::Value, file_size: u64) -> MediaInfo {
+    let format = &v["format"];
+    let streams = v["streams"].as_array().cloned().unwrap_or_default();
+
+    let mut duration: f64 = format["duration"]
+        .as_str()
+        .and_then(|s| s.parse().ok())
+        .filter(|d: &f64| d.is_finite() && *d > 0.0)
+        .unwrap_or(0.0);
+
+    let bitrate = format["bit_rate"]
+        .as_str()
+        .and_then(|s| s.parse::<u64>().ok())
+        .map(|bps| format!("{} kbps", bps / 1000));
+
+    let mut width = None;
+    let mut height = None;
+    let mut video_codec = None;
+    let mut audio_codec = None;
+    let mut fps = None;
+    let mut audio_bitrate_kbps = None;
+
+    for stream in &streams {
+        if duration <= 0.0 {
+            if let Some(sd) = stream["duration"]
+                .as_str()
+                .and_then(|s| s.parse::<f64>().ok())
+                .filter(|d| d.is_finite() && *d > 0.0)
+            {
+                duration = duration.max(sd);
+            }
+        }
+
+        match stream["codec_type"].as_str().unwrap_or("") {
+            "video" => {
+                // Skip attached cover art / thumbnail pictures
+                if stream["disposition"]["attached_pic"].as_i64() == Some(1) {
+                    continue;
+                }
+                if video_codec.is_none() {
+                    width = stream["width"].as_u64().map(|v| v as u32);
+                    height = stream["height"].as_u64().map(|v| v as u32);
+                    video_codec = stream["codec_name"].as_str().map(String::from);
+                    fps = stream["avg_frame_rate"]
+                        .as_str()
+                        .and_then(target_size::parse_fps_str)
+                        .or_else(|| {
+                            stream["r_frame_rate"]
+                                .as_str()
+                                .and_then(target_size::parse_fps_str)
+                        });
+                }
+            }
+            "audio" => {
+                if audio_codec.is_none() {
+                    audio_codec = stream["codec_name"].as_str().map(String::from);
+                    audio_bitrate_kbps = stream["bit_rate"]
+                        .as_str()
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .map(|bps| (bps / 1000) as u32);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let has_audio = audio_codec.is_some();
+
+    MediaInfo {
+        duration,
+        width,
+        height,
+        video_codec,
+        audio_codec,
+        file_size,
+        bitrate,
+        fps,
+        audio_bitrate_kbps,
+        has_audio,
+    }
+}
+
 #[tauri::command(rename_all = "snake_case")]
 async fn get_media_info(
     app: tauri::AppHandle,
@@ -412,6 +502,7 @@ async fn get_media_info(
     let file_size = std::fs::metadata(&input_path)
         .map(|m| m.len())
         .unwrap_or(0);
+    let safe_input = target_size::safe_media_path(&input_path);
 
     let (mut rx, _child) = app
         .shell()
@@ -424,7 +515,8 @@ async fn get_media_info(
             "json",
             "-show_streams",
             "-show_format",
-            &input_path,
+            "-i",
+            &safe_input,
         ])
         .spawn()
         .map_err(|e| e.to_string())?;
@@ -441,70 +533,7 @@ async fn get_media_info(
     let v: serde_json::Value = serde_json::from_slice(&stdout_data)
         .map_err(|e| format!("ffprobe parse error: {}", e))?;
 
-    let format = &v["format"];
-    let streams = v["streams"].as_array().cloned().unwrap_or_default();
-
-    let duration: f64 = format["duration"]
-        .as_str()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0.0);
-
-    let bitrate = format["bit_rate"]
-        .as_str()
-        .and_then(|s| s.parse::<u64>().ok())
-        .map(|bps| format!("{} kbps", bps / 1000));
-
-    let mut width = None;
-    let mut height = None;
-    let mut video_codec = None;
-    let mut audio_codec = None;
-    let mut fps = None;
-    let mut audio_bitrate_kbps = None;
-
-    for stream in &streams {
-        match stream["codec_type"].as_str().unwrap_or("") {
-            "video" => {
-                width = stream["width"].as_u64().map(|v| v as u32);
-                height = stream["height"].as_u64().map(|v| v as u32);
-                video_codec = stream["codec_name"].as_str().map(String::from);
-                if fps.is_none() {
-                    fps = stream["avg_frame_rate"]
-                        .as_str()
-                        .and_then(target_size::parse_fps_str)
-                        .or_else(|| {
-                            stream["r_frame_rate"]
-                                .as_str()
-                                .and_then(target_size::parse_fps_str)
-                        });
-                }
-            }
-            "audio" => {
-                audio_codec = stream["codec_name"].as_str().map(String::from);
-                if audio_bitrate_kbps.is_none() {
-                    audio_bitrate_kbps = stream["bit_rate"]
-                        .as_str()
-                        .and_then(|s| s.parse::<u64>().ok())
-                        .map(|bps| (bps / 1000) as u32);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    let has_audio = audio_codec.is_some();
-
-    Ok(MediaInfo {
-        duration,
-        width,
-        height,
-        video_codec,
-        audio_codec,
-        file_size,
-        bitrate,
-        fps,
-        audio_bitrate_kbps,
-        has_audio,
-    })
+    Ok(parse_ffprobe_json(&v, file_size))
 }
 
 // ─── Target-size 2-pass video compression ────────────────────────────────────
@@ -582,10 +611,45 @@ async fn execute_two_pass_attempt(
     )
     .await;
 
-    if pass2_res.is_err() {
-        let _ = std::fs::remove_file(output_path);
+    if let Err(ref e) = pass2_res {
+        if *e != output_exists_error(output_path) {
+            let _ = std::fs::remove_file(output_path);
+        }
     }
     pass2_res.map(|_| ())
+}
+
+fn copy_file_create_new(input_path: &str, output_path: &str) -> Result<(), String> {
+    use std::io::Write;
+    let mut reader = std::fs::File::open(input_path).map_err(|e| e.to_string())?;
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                output_exists_error(output_path)
+            } else {
+                e.to_string()
+            }
+        })?;
+    let copy_res = (|| -> Result<(), String> {
+        let mut writer = std::io::BufWriter::new(file);
+        std::io::copy(&mut reader, &mut writer).map_err(|e| e.to_string())?;
+        writer.flush().map_err(|e| e.to_string())
+    })();
+    if copy_res.is_err() {
+        let _ = std::fs::remove_file(output_path);
+    }
+    copy_res
+}
+
+fn has_mp4_extension(path: &str) -> bool {
+    std::path::Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("mp4"))
+        .unwrap_or(false)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -616,18 +680,72 @@ async fn compress_single_video_impl(
     )?;
 
     if plan.already_under_target && copy_if_under {
-        std::fs::copy(&input_path, &output_path).map_err(|e| e.to_string())?;
-        let _ = app.emit(
-            "conversion_progress",
-            ProgressPayload {
-                percentage: 100.0,
-                current_time: String::new(),
-                speed: String::new(),
-                pass: None,
-                total_passes: None,
-            },
-        );
-        return Ok(output_path);
+        if has_mp4_extension(&input_path) {
+            copy_file_create_new(&input_path, &output_path)?;
+            let _ = app.emit(
+                "conversion_progress",
+                ProgressPayload {
+                    percentage: 100.0,
+                    current_time: String::new(),
+                    speed: String::new(),
+                    pass: None,
+                    total_passes: None,
+                },
+            );
+            return Ok(output_path);
+        }
+
+        // Source is not an MP4 container: try fast stream-copy remux into MP4 first.
+        let remux_args: Vec<String> = vec![
+            "-nostdin".into(),
+            "-i".into(),
+            target_size::safe_media_path(&input_path),
+            "-progress".into(),
+            "pipe:1".into(),
+            "-nostats".into(),
+            "-map".into(),
+            "0:v:0".into(),
+            "-map".into(),
+            "0:a:0?".into(),
+            "-c".into(),
+            "copy".into(),
+            "-sn".into(),
+            "-movflags".into(),
+            "+faststart".into(),
+            "-n".into(),
+            target_size::safe_media_path(&output_path),
+        ];
+
+        match run_ffmpeg_with_pass(
+            app.clone(),
+            Arc::clone(&slot),
+            Arc::clone(&cancel),
+            remux_args,
+            output_path.clone(),
+            false,
+            None,
+        )
+        .await
+        {
+            Ok(_) => {
+                if let Ok(meta) = std::fs::metadata(&output_path) {
+                    if meta.len() <= plan.target_bytes {
+                        return Ok(output_path);
+                    }
+                }
+                let _ = std::fs::remove_file(&output_path);
+            }
+            Err(e) if e == output_exists_error(&output_path) => {
+                return Err(e);
+            }
+            Err(e) if e == cancelled_error() => {
+                let _ = std::fs::remove_file(&output_path);
+                return Err(e);
+            }
+            Err(_) => {
+                let _ = std::fs::remove_file(&output_path);
+            }
+        }
     }
 
     execute_two_pass_attempt(
@@ -1129,7 +1247,7 @@ async fn convert_video_batch(
 
         let mut args: Vec<String> = vec![
             "-i".into(),
-            item.input_path.clone(),
+            target_size::safe_media_path(&item.input_path),
             "-progress".into(),
             "pipe:1".into(),
             "-nostats".into(),
@@ -1151,7 +1269,11 @@ async fn convert_video_batch(
             args.extend(["-b:v".into(), br.clone()]);
         }
 
-        args.extend(["-nostdin".into(), "-n".into(), item.output_path.clone()]);
+        args.extend([
+            "-nostdin".into(),
+            "-n".into(),
+            target_size::safe_media_path(&item.output_path),
+        ]);
 
         let slot = Arc::clone(&state.current_process);
         let cancel = Arc::clone(&state.cancel_requested);
@@ -1221,7 +1343,7 @@ async fn convert_audio_batch(
 
         let mut args: Vec<String> = vec![
             "-i".into(),
-            item.input_path.clone(),
+            target_size::safe_media_path(&item.input_path),
             "-progress".into(),
             "pipe:1".into(),
             "-nostats".into(),
@@ -1240,7 +1362,11 @@ async fn convert_audio_batch(
             args.extend(["-af".into(), "loudnorm".into()]);
         }
 
-        args.extend(["-nostdin".into(), "-n".into(), item.output_path.clone()]);
+        args.extend([
+            "-nostdin".into(),
+            "-n".into(),
+            target_size::safe_media_path(&item.output_path),
+        ]);
 
         let slot = Arc::clone(&state.current_process);
         let cancel = Arc::clone(&state.cancel_requested);
@@ -1422,6 +1548,7 @@ async fn set_context_menu_enabled(
 #[derive(Clone, Default)]
 pub struct CliRuntimeState {
     pub startup: Arc<Mutex<cli::CliStartupState>>,
+    pub job_lock: Arc<tauri::async_runtime::Mutex<()>>,
 }
 
 #[derive(Serialize, Clone)]
@@ -1439,6 +1566,15 @@ struct CliJobStatusPayload {
     output_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+}
+
+fn emit_cli_job_status(app: &tauri::AppHandle, payload: CliJobStatusPayload) {
+    if let Some(cli_state) = app.try_state::<CliRuntimeState>() {
+        if let Ok(mut guard) = cli_state.startup.lock() {
+            guard.latest_job_status = serde_json::to_value(&payload).ok();
+        }
+    }
+    let _ = app.emit("cli-job-status", payload);
 }
 
 #[derive(Serialize, Clone)]
@@ -1508,14 +1644,14 @@ async fn execute_cli_file_action(
                     let cancel = Arc::clone(&state.cancel_requested);
                     let args: Vec<String> = vec![
                         "-i".into(),
-                        input_path.to_string(),
+                        target_size::safe_media_path(input_path),
                         "-progress".into(),
                         "pipe:1".into(),
                         "-nostats".into(),
                         "-vn".into(),
                         "-nostdin".into(),
                         "-n".into(),
-                        output_path.clone(),
+                        target_size::safe_media_path(&output_path),
                     ];
                     run_ffmpeg(app.clone(), slot, cancel, args, output_path).await
                 }
@@ -1525,13 +1661,13 @@ async fn execute_cli_file_action(
                     let cancel = Arc::clone(&state.cancel_requested);
                     let args: Vec<String> = vec![
                         "-i".into(),
-                        input_path.to_string(),
+                        target_size::safe_media_path(input_path),
                         "-progress".into(),
                         "pipe:1".into(),
                         "-nostats".into(),
                         "-nostdin".into(),
                         "-n".into(),
-                        output_path.clone(),
+                        target_size::safe_media_path(&output_path),
                     ];
                     run_ffmpeg(app.clone(), slot, cancel, args, output_path).await
                 }
@@ -1548,11 +1684,21 @@ fn spawn_cli_request_handler(app: tauri::AppHandle, req: cli::CliRequest) {
             .first()
             .map(|f| cli::detect_media_section(f).to_string())
             .unwrap_or_else(|| "video".to_string());
+        let mut all_files = req.files.clone();
         if let Some(cli_state) = app.try_state::<CliRuntimeState>() {
             if let Ok(mut guard) = cli_state.startup.lock() {
                 guard.is_cli_mode = false;
-                guard.open_files = req.files.clone();
-                guard.open_section = Some(section.clone());
+                if guard.open_section.as_deref() == Some(section.as_str()) {
+                    for f in &req.files {
+                        if !guard.open_files.contains(f) {
+                            guard.open_files.push(f.clone());
+                        }
+                    }
+                    all_files = guard.open_files.clone();
+                } else {
+                    guard.open_files = req.files.clone();
+                    guard.open_section = Some(section.clone());
+                }
             }
         }
         if let Some(win) = app.get_webview_window("main") {
@@ -1563,7 +1709,7 @@ fn spawn_cli_request_handler(app: tauri::AppHandle, req: cli::CliRequest) {
         let _ = app.emit(
             "cli-open-files",
             CliOpenFilesPayload {
-                files: req.files,
+                files: all_files,
                 section,
             },
         );
@@ -1571,6 +1717,14 @@ fn spawn_cli_request_handler(app: tauri::AppHandle, req: cli::CliRequest) {
     }
 
     tauri::async_runtime::spawn(async move {
+        let job_lock = app
+            .try_state::<CliRuntimeState>()
+            .map(|s| Arc::clone(&s.job_lock));
+        let _serial_guard = match &job_lock {
+            Some(lock) => Some(lock.lock().await),
+            None => None,
+        };
+
         let state = app.state::<AppState>().inner().clone();
         let total = req.files.len();
         let mut last_output: Option<String> = None;
@@ -1582,8 +1736,8 @@ fn spawn_cli_request_handler(app: tauri::AppHandle, req: cli::CliRequest) {
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| file_path.clone());
 
-            let _ = app.emit(
-                "cli-job-status",
+            emit_cli_job_status(
+                &app,
                 CliJobStatusPayload {
                     status: "running".to_string(),
                     current_file: file_name.clone(),
@@ -1635,8 +1789,8 @@ fn spawn_cli_request_handler(app: tauri::AppHandle, req: cli::CliRequest) {
         }
 
         if let Some(err) = &last_error {
-            let _ = app.emit(
-                "cli-job-status",
+            emit_cli_job_status(
+                &app,
                 CliJobStatusPayload {
                     status: "error".to_string(),
                     current_file: String::new(),
@@ -1653,8 +1807,8 @@ fn spawn_cli_request_handler(app: tauri::AppHandle, req: cli::CliRequest) {
                 app.exit(1);
             }
         } else {
-            let _ = app.emit(
-                "cli-job-status",
+            emit_cli_job_status(
+                &app,
                 CliJobStatusPayload {
                     status: "done".to_string(),
                     current_file: String::new(),
@@ -1777,14 +1931,16 @@ pub fn run() {
             cli::CliAction::Compress { preset } => cli::CliStartupState {
                 is_cli_mode: true,
                 action_label: Some(format!("Compress ({preset})")),
-                open_files: Vec::new(),
+                open_files: req.files.clone(),
                 open_section: None,
+                latest_job_status: None,
             },
             cli::CliAction::Convert { to } => cli::CliStartupState {
                 is_cli_mode: true,
                 action_label: Some(format!("Convert → {}", to.to_uppercase())),
-                open_files: Vec::new(),
+                open_files: req.files.clone(),
                 open_section: None,
+                latest_job_status: None,
             },
             cli::CliAction::Open => {
                 let section = req
@@ -1797,6 +1953,7 @@ pub fn run() {
                     action_label: None,
                     open_files: req.files.clone(),
                     open_section: Some(section),
+                    latest_job_status: None,
                 }
             }
         },
@@ -1812,6 +1969,7 @@ pub fn run() {
         })
         .manage(CliRuntimeState {
             startup: Arc::new(Mutex::new(startup_state)),
+            job_lock: Arc::new(tauri::async_runtime::Mutex::new(())),
         })
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             if let Some(req) = cli::parse_cli_args(&argv) {
@@ -1997,6 +2155,50 @@ mod tests {
         assert_eq!(s.default_video_format, "mp4");
         assert_eq!(s.default_audio_format, "mp3");
         assert_eq!(s.default_image_format, "webp");
+    }
+
+    #[test]
+    fn test_parse_ffprobe_json_skips_attached_pic_and_uses_stream_duration_fallback() {
+        let probe = serde_json::json!({
+            "format": {
+                "duration": "0",
+                "bit_rate": "2500000"
+            },
+            "streams": [
+                {
+                    "codec_type": "video",
+                    "codec_name": "h264",
+                    "width": 1920,
+                    "height": 1080,
+                    "avg_frame_rate": "60/1",
+                    "duration": "42.5",
+                    "disposition": { "attached_pic": 0 }
+                },
+                {
+                    "codec_type": "video",
+                    "codec_name": "mjpeg",
+                    "width": 600,
+                    "height": 600,
+                    "avg_frame_rate": "90000/1",
+                    "disposition": { "attached_pic": 1 }
+                },
+                {
+                    "codec_type": "audio",
+                    "codec_name": "aac",
+                    "bit_rate": "128000"
+                }
+            ]
+        });
+
+        let info = parse_ffprobe_json(&probe, 12_345_678);
+        assert!((info.duration - 42.5).abs() < 1e-6);
+        assert_eq!(info.width, Some(1920));
+        assert_eq!(info.height, Some(1080));
+        assert_eq!(info.video_codec.as_deref(), Some("h264"));
+        assert_eq!(info.fps, Some(60.0));
+        assert_eq!(info.audio_codec.as_deref(), Some("aac"));
+        assert_eq!(info.audio_bitrate_kbps, Some(128));
+        assert!(info.has_audio);
     }
 }
 

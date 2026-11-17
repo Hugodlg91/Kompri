@@ -16,6 +16,25 @@ import pt from "../locales/pt.json";
 
 type EventHandler = (event: { payload: any }) => void;
 
+if (typeof globalThis.localStorage?.setItem !== "function") {
+  const store = new Map<string, string>();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, String(value));
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+      clear: () => {
+        store.clear();
+      },
+    },
+  });
+}
+
 const mocks = vi.hoisted(() => ({
   listeners: new Map<string, Set<EventHandler>>(),
   drops: new Set<EventHandler>(),
@@ -505,6 +524,145 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
     expect(closeBtn).toBeDefined();
     fireEvent.click(closeBtn!);
     expect(mocks.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the Convert button and displays targetSize.tooSmall when estimate_target_size rejects with target_too_small", async () => {
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") {
+        return Promise.resolve({
+          language: "en",
+          theme: "dark",
+          output_dir: null,
+          default_video_format: "mp4",
+          default_audio_format: "mp3",
+          default_image_format: "webp",
+        });
+      }
+      if (command === "get_media_info") {
+        return Promise.resolve({
+          duration: 3600,
+          width: 1920,
+          height: 1080,
+          video_codec: "h264",
+          file_size: 800 * 1024 * 1024,
+          fps: 60,
+        });
+      }
+      if (command === "estimate_target_size") {
+        return Promise.reject("target_too_small");
+      }
+      return Promise.resolve();
+    });
+
+    render(
+      <SettingsProvider>
+        <VideoConverter />
+      </SettingsProvider>
+    );
+
+    await dropVideoFile("C:/videos/long_movie.mp4");
+    fireEvent.click(await screen.findByRole("button", { name: "Discord (10 MB)" }));
+
+    expect(await screen.findByText(en.targetSize.tooSmall)).toBeInTheDocument();
+
+    const convertBtn = screen.getByRole("button", { name: en.converter.convert });
+    expect(convertBtn).toBeDisabled();
+
+    fireEvent.click(convertBtn);
+    expect(mocks.invoke).not.toHaveBeenCalledWith(
+      "compress_video_to_size",
+      expect.anything()
+    );
+  });
+
+  it("propagates open_files from get_cli_state (is_cli_mode: false) and cli-open-files events into VideoConverter", async () => {
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") {
+        return Promise.resolve({
+          language: "en",
+          theme: "dark",
+          output_dir: null,
+          default_video_format: "mp4",
+          default_audio_format: "mp3",
+          default_image_format: "webp",
+        });
+      }
+      if (command === "get_cli_state") {
+        return Promise.resolve({
+          is_cli_mode: false,
+          open_files: ["C:/videos/context_single.mp4"],
+          open_section: "video",
+        });
+      }
+      if (command === "get_media_info") {
+        return Promise.resolve({
+          duration: 45,
+          width: 1920,
+          height: 1080,
+          video_codec: "h264",
+          file_size: 20 * 1024 * 1024,
+          fps: 30,
+        });
+      }
+      return Promise.resolve();
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(mocks.invoke).toHaveBeenCalledWith("get_media_info", {
+        input_path: "C:/videos/context_single.mp4",
+      });
+    });
+    expect(await screen.findByText("context_single.mp4")).toBeInTheDocument();
+
+    emitEvent("cli-open-files", {
+      files: ["C:/videos/batch_one.mp4", "C:/videos/batch_two.mkv"],
+      section: "video",
+    });
+
+    expect(await screen.findByText("batch_one.mp4")).toBeInTheDocument();
+    expect(screen.getByText("batch_two.mkv")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: `${en.converter.convert} (2)` })
+    ).toBeInTheDocument();
+  });
+
+  it("hydrates cliJobStatus immediately when get_cli_state returns latest_job_status in CLI mode", async () => {
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") {
+        return Promise.resolve({
+          language: "en",
+          theme: "dark",
+          output_dir: null,
+          default_video_format: "mp4",
+          default_audio_format: "mp3",
+          default_image_format: "webp",
+        });
+      }
+      if (command === "get_cli_state") {
+        return Promise.resolve({
+          is_cli_mode: true,
+          action_label: "Compress for Discord (10 MB)",
+          open_files: ["C:/videos/instant.mp4"],
+          open_section: "video",
+          latest_job_status: {
+            status: "done",
+            current_file: "instant.mp4",
+            index: 0,
+            total: 1,
+            percentage: 100,
+            output_path: "C:/videos/instant_discord.mp4",
+          },
+        });
+      }
+      return Promise.resolve();
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("instant_discord.mp4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open folder" })).toBeInTheDocument();
   });
 
   it("provides all required new i18n keys in fr, en, es, de, and pt locales", () => {

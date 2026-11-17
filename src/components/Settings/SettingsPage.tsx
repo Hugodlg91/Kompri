@@ -381,7 +381,7 @@ export function SettingsPage() {
 
   const handleLanguageChange = async (newLang: string) => {
     await updateSettings({ language: newLang });
-    if (contextMenuEnabled) {
+    if (contextMenuEnabled && !settings.context_menu_enabled) {
       invoke("set_context_menu_enabled", { enabled: true, language: newLang }).catch(() => {});
     }
   };
@@ -539,7 +539,6 @@ export function SettingsPage() {
                 <label
                   htmlFor="context-menu-toggle"
                   style={{ fontSize: "13px", color: "var(--text)", fontWeight: 500, cursor: "pointer" }}
-                  onClick={handleToggleContextMenu}
                 >
                   {t("settings.contextMenu")}
                 </label>

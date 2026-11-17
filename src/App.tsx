@@ -21,6 +21,7 @@ interface CliState {
   action_label?: string;
   open_files: string[];
   open_section?: string;
+  latest_job_status?: CliJobStatus;
 }
 
 interface CliJobStatus {
@@ -55,6 +56,13 @@ function AppLayout() {
   const { isLoading } = useSettingsContext();
   const [cliState, setCliState] = useState<CliState | null>(null);
   const [cliJobStatus, setCliJobStatus] = useState<CliJobStatus | null>(null);
+  const [externalFiles, setExternalFiles] = useState<
+    Record<ConverterSection, { files: string[]; seq: number }>
+  >({
+    image: { files: [], seq: 0 },
+    video: { files: [], seq: 0 },
+    audio: { files: [], seq: 0 },
+  });
 
   // Check initial CLI invocation state and subscribe to CLI events
   useEffect(() => {
@@ -64,21 +72,48 @@ function AppLayout() {
       .catch(() => null)
       .then((state) => {
         if (cancelled || !state) return;
+        const targetSection: ConverterSection = isConverterSection(state.open_section)
+          ? state.open_section
+          : "video";
         if (isConverterSection(state.open_section)) {
           setSection(state.open_section);
         }
         if (state.is_cli_mode) {
           setCliState(state);
+          if (state.latest_job_status) {
+            setCliJobStatus(state.latest_job_status);
+          }
+        } else if (state.open_files?.length > 0) {
+          setSection(targetSection);
+          setExternalFiles((prev) => ({
+            ...prev,
+            [targetSection]: {
+              files: state.open_files,
+              seq: prev[targetSection].seq + 1,
+            },
+          }));
         }
       });
 
     let unlistenOpenFiles: (() => void) | undefined;
     let unlistenJobStatus: (() => void) | undefined;
+    let unlistenConvProgress: (() => void) | undefined;
 
     listen<{ files: string[]; section: string }>("cli-open-files", (event) => {
       if (cancelled) return;
-      if (isConverterSection(event.payload?.section)) {
-        setSection(event.payload.section);
+      const sec: ConverterSection = isConverterSection(event.payload?.section)
+        ? event.payload.section
+        : "video";
+      setSection(sec);
+      if (event.payload?.files?.length) {
+        const files = event.payload.files;
+        setExternalFiles((prev) => ({
+          ...prev,
+          [sec]: {
+            files,
+            seq: prev[sec].seq + 1,
+          },
+        }));
       }
     })
       .then((u) => {
@@ -98,10 +133,35 @@ function AppLayout() {
       })
       .catch(() => {});
 
+    listen<{ percentage: number; pass?: number; total_passes?: number }>(
+      "conversion_progress",
+      (event) => {
+        if (cancelled || !event.payload) return;
+        setCliJobStatus((prev) => {
+          if (!prev || prev.status !== "running") return prev;
+          const total = Math.max(1, prev.total);
+          const fileFraction = Math.min(100, Math.max(0, event.payload.percentage)) / 100;
+          const overallPct = ((prev.index + fileFraction) / total) * 100;
+          return {
+            ...prev,
+            percentage: overallPct,
+            pass: event.payload.pass ?? prev.pass,
+            total_passes: event.payload.total_passes ?? prev.total_passes,
+          };
+        });
+      }
+    )
+      .then((u) => {
+        if (cancelled) u();
+        else unlistenConvProgress = u;
+      })
+      .catch(() => {});
+
     return () => {
       cancelled = true;
       unlistenOpenFiles?.();
       unlistenJobStatus?.();
+      unlistenConvProgress?.();
     };
   }, []);
 
@@ -140,7 +200,7 @@ function AppLayout() {
             style={section === type ? { height: "100%" } : undefined}
           >
             <SectionActiveContext.Provider value={section === type}>
-              <ConverterPage type={type} />
+              <ConverterPage type={type} externalFiles={externalFiles[type]} />
             </SectionActiveContext.Provider>
           </div>
         ))}
