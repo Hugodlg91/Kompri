@@ -191,6 +191,7 @@ export function TitleBar() {
 
       {/* Centre: Liquid Glass App Capsule */}
       <div
+        className="titlebar-center"
         style={{
           position: "absolute",
           left: "50%",

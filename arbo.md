@@ -32,12 +32,13 @@ MediaForge/
 │   ├── setupTests.ts                   # Setup Vitest (jest-dom matchers)
 │   ├── vite-env.d.ts                   # Types d'environnement Vite
 │   │
-│   ├── __tests__/                      # Tests unitaires Vitest (40 tests)
+│   ├── __tests__/                      # Tests unitaires Vitest (43 tests)
 │   │   ├── path.test.ts                # 16 tests : buildOutputPath / formatFileSize / formatDuration
 │   │   ├── useDragDrop.test.ts         # 7 tests : filtrage extensions drag & drop
 │   │   ├── useConversion.test.ts       # 6 tests : concurrence & annulation des conversions
 │   │   ├── navigation.test.tsx         # 6 tests : persistance inter-onglets, raccourcis Ctrl+1..5
-│   │   └── titlebar.test.tsx           # 5 tests : contrôles de fenêtre Liquid Glass (close/min/max)
+│   │   ├── titlebar.test.tsx           # 5 tests : contrôles de fenêtre Liquid Glass (close/min/max)
+│   │   └── responsive.test.tsx         # 3 tests : architecture responsive, grilles et portails
 │   │
 │   ├── components/
 │   │   ├── GlobalErrorBoundary.tsx     # Error boundary global (récupération crash React)

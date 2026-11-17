@@ -261,7 +261,12 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
   - Aperçu du nom de fichier de sortie (`→ fichier_converted.ext`) avant conversion et métadonnées en capsules `.glass-badge`
   - Barre d'outils Batch avec compteur de fichiers et bouton **"Vider"** pour réinitialiser la file en un clic
 - [x] **Traductions i18n (5 langues)** : ajout des clés `converter.localOnly`, `converter.outputPreview`, `history.searchPlaceholder`, `history.filterAll`, `history.deleteItem`, `history.noResults`, `result.openFile`, `window.close/minimize/maximize/restore` dans `fr.json`, `en.json`, `es.json`, `de.json`, `pt.json`
-- [x] **Tests & Build** : `cargo test` **32/32 tests passent (0 warning)** — `vitest` **40/40 tests passent** (incluant `titlebar.test.tsx`) — `tsc --noEmit` & `tauri build` **0 erreur**
+- [x] **Architecture Responsive complète (`index.css`, `App.tsx`, `Sidebar.tsx`, `TitleBar.tsx`, `tauri.conf.json`, Convertisseurs, `History.tsx`, `SettingsPage.tsx`)** :
+  - Abaissement des dimensions minimales de fenêtre dans `tauri.conf.json` (`minWidth: 400`, `minHeight: 480`) pour autoriser le split-screen et les formats compacts
+  - Transformation automatique de la `Sidebar` en **Bottom Navigation Dock Liquid Glass** sous `640px` (`@media (max-width: 640px)` avec `.app-body { flex-direction: column-reverse }`)
+  - Conteneur centré fluide `.page-container` (`max-width: 920px`, `padding: clamp(14px, 2.8vw, 28px)`) et grilles auto-adaptatives `.responsive-grid-3` / `.responsive-grid-2` / `.history-row-grid`
+  - Ajout de la suite de tests automatisés `src/__tests__/responsive.test.tsx`
+- [x] **Tests & Build** : `cargo test` **32/32 tests passent (0 warning)** — `vitest` **43/43 tests passent** (6 fichiers de tests incluant `titlebar.test.tsx` et `responsive.test.tsx`) — `tsc --noEmit` & `tauri build` **0 erreur**
 
 ---
 

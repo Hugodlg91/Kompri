@@ -71,7 +71,9 @@ export function DropZone({
         boxShadow: isHighlighted
           ? "0 8px 32px var(--accent-dim), inset 0 1px 0 var(--glass-highlight)"
           : "var(--shadow-sm)",
-        padding: "32px 24px",
+        padding: "clamp(18px, 3.5vh, 32px) clamp(14px, 3vw, 24px)",
+        width: "100%",
+        minWidth: 0,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -117,7 +119,7 @@ export function DropZone({
             <IcnUpload size={28} strokeWidth={1.5} />
           </div>
 
-          <div style={{ textAlign: "center" }}>
+          <div style={{ textAlign: "center", maxWidth: "100%", minWidth: 0 }}>
             <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)", marginBottom: "4px" }}>
               {label ?? t("dropzone.label")}
             </p>
@@ -137,6 +139,9 @@ export function DropZone({
                 color: "var(--muted)",
                 letterSpacing: "0.06em",
                 textAlign: "center",
+                maxWidth: "100%",
+                flexWrap: "wrap",
+                justifyContent: "center",
               }}
             >
               {formats}

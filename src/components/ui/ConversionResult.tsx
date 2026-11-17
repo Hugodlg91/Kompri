@@ -29,12 +29,13 @@ export function ConversionResult({ outputPath, onNewConversion }: ConversionResu
   }, [outputPath]);
 
   return (
-    <div className="flex flex-col gap-3 animate-fade-in">
+    <div className="flex flex-col gap-3 animate-fade-in" style={{ minWidth: 0 }}>
       {/* Success card */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
+          flexWrap: "wrap",
           gap: "12px",
           background: "rgba(16, 185, 129, 0.08)",
           backdropFilter: "var(--glass-blur)",
@@ -63,7 +64,7 @@ export function ConversionResult({ outputPath, onNewConversion }: ConversionResu
           <IcnCheck size={16} strokeWidth={2.5} />
         </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: "1 1 180px", minWidth: 0 }}>
           <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--success)", letterSpacing: "0.06em", marginBottom: "2px" }}>
             {t("result.success").toUpperCase()}
           </p>
@@ -72,7 +73,7 @@ export function ConversionResult({ outputPath, onNewConversion }: ConversionResu
           </p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flexShrink: 0, maxWidth: "100%" }}>
           <button className="btn-ghost" onClick={handleOpenFile} style={{ flexShrink: 0, gap: "6px" }}>
             <IcnExternalLink size={14} />
             {t("result.openFile")}

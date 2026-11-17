@@ -255,7 +255,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
 
 function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
       <label style={{ fontSize: "13px", color: "var(--text)", flexShrink: 0, fontWeight: 500 }}>{label}</label>
       <div>{children}</div>
     </div>
@@ -310,21 +310,12 @@ export function SettingsPage() {
   const imageOptions = IMAGE_FORMATS.map((f) => ({ value: f, label: f.toUpperCase() }));
 
   return (
-    <div
-      style={{
-        padding: "24px",
-        height: "100%",
-        overflowY: "auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: "24px",
-      }}
-    >
+    <div className="page-container">
       <h2 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)", lineHeight: 1.2 }}>
         {t("settings.title")}
       </h2>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "14px", maxWidth: "560px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "14px", maxWidth: "720px", width: "100%" }}>
 
         {/* ── Appearance ───────────────────────────────────────────────────── */}
         <SectionCard title={t("settings.appearance")}>
@@ -341,11 +332,11 @@ export function SettingsPage() {
           {/* Output folder */}
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <label style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>{t("settings.outputDir")}</label>
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
               <div
                 className="glass-input"
                 style={{
-                  flex: 1,
+                  flex: "1 1 200px",
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
@@ -355,7 +346,7 @@ export function SettingsPage() {
                   border: "1px solid var(--border2)",
                   borderRadius: "10px",
                   padding: "8px 12px",
-                  minWidth: 0,
+                  minWidth: "160px",
                   boxShadow: "var(--shadow-sm)",
                 }}
               >
@@ -393,7 +384,7 @@ export function SettingsPage() {
           {/* Default formats */}
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <label style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>{t("settings.defaultFormats")}</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+            <div className="responsive-grid-3">
               {[
                 { label: t("settings.defaultVideo"), val: settings.default_video_format, opts: videoOptions, key: "default_video_format" },
                 { label: t("settings.defaultAudio"), val: settings.default_audio_format, opts: audioOptions, key: "default_audio_format" },

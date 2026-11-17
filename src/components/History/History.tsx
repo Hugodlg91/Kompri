@@ -63,10 +63,8 @@ function HistoryRow({
 
   return (
     <div
-      className="slide-in glass-card"
+      className="slide-in glass-card history-row-grid"
       style={{
-        display: "grid",
-        gridTemplateColumns: "auto 1fr auto auto",
         alignItems: "center",
         gap: "14px",
         background: "var(--surface)",
@@ -178,38 +176,40 @@ function HistoryRow({
         </div>
       </div>
 
-      {/* Date — aligned in its own column */}
-      <span style={{ fontSize: "11px", color: "var(--muted)", whiteSpace: "nowrap", textAlign: "right" }}>
-        {formatDate(item.timestamp, t)}
-      </span>
+      <div className="history-row-meta">
+        {/* Date — aligned in its own column */}
+        <span style={{ fontSize: "11px", color: "var(--muted)", whiteSpace: "nowrap", textAlign: "right" }}>
+          {formatDate(item.timestamp, t)}
+        </span>
 
-      {/* Actions */}
-      <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
-        <button
-          className="btn-ghost"
-          onClick={handleOpenFile}
-          title={t("history.openFile")}
-          style={{ padding: "6px 10px", fontSize: "11px", gap: "5px" }}
-        >
-          <IcnExternalLink size={12} />
-          <span>{t("history.openFile")}</span>
-        </button>
-        <button
-          className="btn-ghost"
-          onClick={handleOpenFolder}
-          title={t("history.openFolder")}
-          style={{ padding: "6px 8px", fontSize: "11px" }}
-        >
-          <IcnFolder size={13} />
-        </button>
-        <button
-          className="btn-ghost"
-          onClick={() => onRemove(item.id)}
-          title={t("history.deleteItem")}
-          style={{ padding: "6px 8px", fontSize: "11px" }}
-        >
-          <IcnTrash size={13} />
-        </button>
+        {/* Actions */}
+        <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+          <button
+            className="btn-ghost"
+            onClick={handleOpenFile}
+            title={t("history.openFile")}
+            style={{ padding: "6px 10px", fontSize: "11px", gap: "5px" }}
+          >
+            <IcnExternalLink size={12} />
+            <span>{t("history.openFile")}</span>
+          </button>
+          <button
+            className="btn-ghost"
+            onClick={handleOpenFolder}
+            title={t("history.openFolder")}
+            style={{ padding: "6px 8px", fontSize: "11px" }}
+          >
+            <IcnFolder size={13} />
+          </button>
+          <button
+            className="btn-ghost"
+            onClick={() => onRemove(item.id)}
+            title={t("history.deleteItem")}
+            style={{ padding: "6px 8px", fontSize: "11px" }}
+          >
+            <IcnTrash size={13} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -250,18 +250,9 @@ export function History() {
   }, [history, searchQuery, mediaFilter]);
 
   return (
-    <div
-      style={{
-        padding: "24px",
-        height: "100%",
-        overflowY: "auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: "18px",
-      }}
-    >
+    <div className="page-container" style={{ minHeight: "100%" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div className="page-header">
         <h2 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)", lineHeight: 1.2 }}>
           {t("history.title")}
         </h2>
@@ -282,17 +273,18 @@ export function History() {
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
             flexWrap: "wrap",
+            gap: "10px",
+            alignItems: "center",
           }}
         >
           {/* Search input */}
           <div
             className="glass-input"
             style={{
-              flex: "1 1 220px",
+              position: "relative",
+              flex: "1 1 200px",
+              minWidth: "160px",
               display: "flex",
               alignItems: "center",
               gap: "8px",
@@ -339,7 +331,7 @@ export function History() {
           </div>
 
           {/* Media type segmented filter */}
-          <div className="seg-ctrl">
+          <div className="seg-ctrl" style={{ flexWrap: "wrap", overflowX: "auto", maxWidth: "100%" }}>
             <button
               className={mediaFilter === "all" ? "active" : ""}
               onClick={() => setMediaFilter("all")}

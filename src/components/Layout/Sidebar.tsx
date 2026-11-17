@@ -23,28 +23,10 @@ export function Sidebar({ active, onChange }: SidebarProps) {
   const { t } = useTranslation();
 
   return (
-    <aside
-      style={{
-        width: "78px",
-        minWidth: "78px",
-        background: "var(--surface)",
-        backdropFilter: "var(--glass-blur)",
-        WebkitBackdropFilter: "var(--glass-blur)",
-        borderRight: "1px solid var(--border)",
-        boxShadow: "inset -1px 0 0 var(--glass-edge)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        paddingTop: "14px",
-        paddingBottom: "14px",
-        gap: "4px",
-        height: "100%",
-        flexShrink: 0,
-        zIndex: 10,
-      }}
-    >
+    <aside className="app-sidebar">
       {/* Logo mark — Liquid Glass Gem */}
       <div
+        className="sidebar-logo"
         style={{
           width: "38px",
           height: "38px",
@@ -74,34 +56,18 @@ export function Sidebar({ active, onChange }: SidebarProps) {
         </span>
       </div>
 
-      <nav
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "4px",
-          width: "100%",
-          padding: "0 8px",
-        }}
-      >
+      <nav className="sidebar-nav">
         {navItems.map(({ key, Icon }, index) => {
           const isActive = active === key;
           const label = t("nav." + key);
           return (
             <button
               key={key}
+              className="sidebar-btn"
               onClick={() => onChange(key)}
               title={label}
               aria-keyshortcuts={`Control+${index + 1}`}
               style={{
-                position: "relative",
-                width: "100%",
-                height: "54px",
-                borderRadius: "12px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "5px",
                 border: isActive
                   ? "1px solid rgba(139, 122, 255, 0.3)"
                   : "1px solid transparent",
@@ -113,7 +79,6 @@ export function Sidebar({ active, onChange }: SidebarProps) {
                 color: isActive ? "var(--accent)" : "var(--muted)",
                 transition:
                   "background 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.12s ease",
-                flexShrink: 0,
                 outline: "none",
               }}
               onMouseEnter={(e) => {
@@ -131,21 +96,7 @@ export function Sidebar({ active, onChange }: SidebarProps) {
                 }
               }}
             >
-              {isActive && (
-                <span
-                  style={{
-                    position: "absolute",
-                    left: "-9px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: "3.5px",
-                    height: "24px",
-                    background: "var(--accent)",
-                    boxShadow: "0 0 10px var(--accent)",
-                    borderRadius: "0 4px 4px 0",
-                  }}
-                />
-              )}
+              {isActive && <span className="sidebar-active-indicator" />}
               <Icon size={19} strokeWidth={isActive ? 2.2 : 1.75} />
               <span
                 style={{
