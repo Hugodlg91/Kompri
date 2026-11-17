@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.2.0] - 2026-11-17
+
+### Added
+- **1-Click "Target Size" Video Compression**:
+  - Dedicated **Target Size** mode in the Video Converter with built-in platform presets (**Discord 10 MB**, **WhatsApp 16 MB**, **Gmail 25 MB**) and a **Custom MB** input (configurable defaults in Settings).
+  - Exact two-pass FFmpeg encoding (**H.264** `libx264` and **H.265** `libx265`) with a **95% container safety budget** (`1 MB = 1,000,000 bytes`) to guarantee output files never exceed strict upload limits.
+  - Smart **automatic resolution & FPS downscaling** (orientation-aware short-side scaling for both landscape and portrait 9:16 videos, even-dimension rounding, and 60fps → 30fps cap on constrained bitrates) with live pre-conversion quality/resolution estimate badge.
+  - Automatic **-10% video bitrate retry** if the 2-pass output ever exceeds the target byte limit, plus atomic copy/remux (`-c copy -movflags +faststart`) when the source video is already under the target size.
+  - Two-pass real-time progress reporting (`Pass 1/2 — Analysis` → `Pass 2/2 — Encoding`) in single, batch, and CLI modes.
+- **Windows Explorer Right-Click Context Menu & CLI Mode**:
+  - Native cascading **"MediaForge"** context menu registered per-user under `HKCU\Software\Classes\SystemFileAssociations` (no Administrator privileges or UAC prompt required) for video (`.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`), image (`.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.tiff`), and audio (`.mp3`, `.wav`, `.flac`, `.ogg`, `.aac`, `.m4a`) files.
+  - Sub-actions: *Compress for Discord (10 MB)*, *Compress for WhatsApp (16 MB)*, *Compress for Gmail (25 MB)*, *Convert to MP4 / MP3 / JPG / PNG / WEBP*, and *Open in MediaForge…*.
+  - **Single-instance multi-file forwarding** (`tauri-plugin-single-instance`) with serialized async queue (`tokio::sync::Mutex`) so multi-file selections in Windows Explorer process all selected files sequentially without race conditions.
+  - **Compact CLI mini-window (`420×220`) & headless `--wait` mode** (`--action compress|convert|open`) that auto-closes after conversion completion.
+  - One-click **Context Menu toggle** in Settings (synchronized with the active UI language) and automatic registry cleanup on uninstall via `src-tauri/nsis/hooks.nsh`.
+
+### Fixed
+- Hardened FFmpeg/FFprobe path handling (`safe_media_path` prefixing `./` for leading-dash filenames, `-nostdin`, explicit `-map 0:v:0 -sn -pix_fmt yuv420p`) and ignored `attached_pic` cover art streams during video probing.
+- Added `--` end-of-options separator before file paths in Windows Explorer registry commands and rejected `%`, `\r`, `\n` characters in executable path validation.
+
+---
+
 ## [1.1.0] - 2026-11-17
 
 ### Added

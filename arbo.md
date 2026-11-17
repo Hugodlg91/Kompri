@@ -17,38 +17,44 @@ MediaForge/
 ├── package.json                        # Dépendances npm + scripts (dev/build/test/tauri)
 ├── package-lock.json                   # Lockfile npm
 │
-├── DEVLOG.md                           # Journal de développement (étapes 1-14)
+├── DEVLOG.md                           # Journal de développement (étapes 1-16)
+├── CHANGELOG.md                        # Notes de version (v1.0.0 → v1.2.0)
+├── PLAN-v1.2.md                        # Plan d'architecture et résultats E2E de la v1.2.0
 ├── README.md                           # Documentation générale du projet
 ├── arbo.md                             # Ce fichier — arborescence du projet
+│
+├── scripts/
+│   └── test-target-size.ps1            # Suite E2E FFmpeg (15 scénarios 1080p/4K Discord/WhatsApp/Gmail)
 │
 ├── resource/
 │   └── app-icon.png                    # Source 1024×1024 de l'icône de l'app
 │
 ├── src/                                # Frontend React + TypeScript
 │   ├── main.tsx                        # Point d'entrée React (GlobalErrorBoundary → App)
-│   ├── App.tsx                         # Routage principal (TitleBar + Sidebar + pages + raccourcis)
+│   ├── App.tsx                         # Routage principal (TitleBar + Sidebar + pages + mini-vue CLI)
 │   ├── i18n.ts                         # Configuration i18next (5 langues)
 │   ├── index.css                       # Design system global Liquid Glass (tokens CSS, utilitaires)
 │   ├── setupTests.ts                   # Setup Vitest (jest-dom matchers)
 │   ├── vite-env.d.ts                   # Types d'environnement Vite
 │   │
-│   ├── __tests__/                      # Tests unitaires Vitest (43 tests)
+│   ├── __tests__/                      # Tests unitaires Vitest (51 tests)
 │   │   ├── path.test.ts                # 16 tests : buildOutputPath / formatFileSize / formatDuration
 │   │   ├── useDragDrop.test.ts         # 7 tests : filtrage extensions drag & drop
 │   │   ├── useConversion.test.ts       # 6 tests : concurrence & annulation des conversions
 │   │   ├── navigation.test.tsx         # 6 tests : persistance inter-onglets, raccourcis Ctrl+1..5
 │   │   ├── titlebar.test.tsx           # 5 tests : contrôles de fenêtre Liquid Glass (close/min/max)
-│   │   └── responsive.test.tsx         # 3 tests : architecture responsive, grilles et portails
+│   │   ├── responsive.test.tsx         # 3 tests : architecture responsive, grilles et portails
+│   │   └── targetSize.test.tsx         # 8 tests : mode Taille cible, presets, estimation, Passe 1/2 & 2/2
 │   │
 │   ├── components/
 │   │   ├── GlobalErrorBoundary.tsx     # Error boundary global (récupération crash React)
 │   │   │
 │   │   ├── Converter/
-│   │   │   ├── ConverterPage.tsx       # Page wrapper des convertisseurs
-│   │   │   ├── VideoConverter.tsx      # Convertisseur vidéo (single + batch)
+│   │   │   ├── ConverterPage.tsx       # Page wrapper des convertisseurs + routage fichiers CLI
+│   │   │   ├── VideoConverter.tsx      # Convertisseur vidéo (Format classique + Taille cible 2 passes)
 │   │   │   ├── AudioConverter.tsx      # Convertisseur audio (single + batch)
 │   │   │   ├── ImageConverter.tsx      # Convertisseur image (single + batch + resize)
-│   │   │   └── ProgressBar.tsx         # Barre de progression Liquid Glass + bouton annuler
+│   │   │   └── ProgressBar.tsx         # Barre de progression Liquid Glass (support Passe 1/2 & 2/2)
 │   │   │
 │   │   ├── History/
 │   │   │   ├── HistoryPage.tsx         # Page Historique (wrapper)
@@ -59,7 +65,7 @@ MediaForge/
 │   │   │   └── TitleBar.tsx            # Barre de titre Liquid Glass (contrôles fenêtre, thème, langue)
 │   │   │
 │   │   ├── Settings/
-│   │   │   └── SettingsPage.tsx        # Page Paramètres (thème, langue, formats...)
+│   │   │   └── SettingsPage.tsx        # Page Paramètres (thème, langue, presets Mo, menu contextuel)
 │   │   │
 │   │   └── ui/                         # Composants réutilisables
 │   │       ├── Icons.tsx               # Icônes SVG (20 icônes stroke-based)
@@ -71,10 +77,10 @@ MediaForge/
 │   │   └── SectionActiveContext.ts     # Context d'isolation drag & drop de l'onglet actif
 │   │
 │   ├── hooks/
-│   │   ├── useConversion.ts            # Conversion vidéo & audio (single + batch)
+│   │   ├── useConversion.ts            # Conversion vidéo/audio + Taille cible 2 passes (single + batch)
 │   │   ├── useImageConversion.ts       # Conversion images (single + batch + resize)
 │   │   ├── useHistory.ts               # Chargement / suppression / vidage de l'historique
-│   │   ├── useSettings.ts              # Chargement / sauvegarde des paramètres
+│   │   ├── useSettings.ts              # Chargement / sauvegarde des paramètres + sync menu contextuel
 │   │   └── useDragDrop.ts              # Drag & drop natif Tauri (filtre extensions)
 │   │
 │   ├── locales/                        # Fichiers de traduction i18n
@@ -89,14 +95,20 @@ MediaForge/
 │
 └── src-tauri/                          # Backend Rust (Tauri v2)
     ├── .gitignore                      # Exclut target/ localement
-    ├── Cargo.toml                      # Dépendances Rust
+    ├── Cargo.toml                      # Dépendances Rust (tauri, single-instance, winreg, image...)
     ├── Cargo.lock                      # Lockfile Cargo
     ├── build.rs                        # Script de build Tauri
-    ├── tauri.conf.json                 # Config Tauri (decorations: false, bundle v1.0.0, NSIS/MSI...)
+    ├── tauri.conf.json                 # Config Tauri (decorations: false, bundle v1.2.0, NSIS hooks...)
+    │
+    ├── nsis/
+    │   └── hooks.nsh                   # Hook NSIS de nettoyage du registre Windows à la désinstallation
     │
     ├── src/
     │   ├── main.rs                     # Point d'entrée Rust
-    │   ├── lib.rs                      # Commandes Tauri + Drop anti-zombie + tests unitaires
+    │   ├── lib.rs                      # Commandes Tauri + orchestration 2 passes + single-instance
+    │   ├── target_size.rs              # Calcul de débit, budget 95%, downscaling auto & args FFmpeg 2 passes
+    │   ├── context_menu.rs             # Inscription/suppression registre HKCU du menu contextuel Windows
+    │   ├── cli.rs                      # Parsing des arguments CLI (--action compress|convert|open)
     │   ├── job_tests.rs                # Tests unitaires d'isolation et d'annulation des jobs
     │   └── output_tests.rs             # Tests unitaires d'intégrité des fichiers de sortie
     │

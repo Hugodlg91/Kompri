@@ -2,7 +2,7 @@
 
 > Branche : `feat/target-size-context-menu` (créée depuis le tag `v1.1.0`)  
 > Cible : **v1.2.0**  
-> Statut : **Pause propre — Étapes 1 à 6 TERMINÉES (57 tests Rust + 51 tests Vitest + 15/15 vidéos E2E FFmpeg OK). Prêt pour les correctifs finaux de l'Étape 7 et le packaging v1.2.0 (Étape 8).**
+> Statut : **TERMINÉ — Étapes 1 à 8 COMPLÉTÉES (57 tests Rust + 51 tests Vitest + 15/15 vidéos E2E FFmpeg OK + Revue de code appliquée + Packaging v1.2.0 prêt).**
 
 ---
 
@@ -63,11 +63,11 @@
 
 ---
 
-## À terminer à la reprise (Étapes 7 & 8)
+## Étapes finales (Étapes 7 & 8)
 
-- [ ] **Étape 7 — Application des correctifs issus de la revue indépendante (`independent-code-reviewer`)** :
+- [x] **Étape 7 — Application des correctifs issus de la revue indépendante (`independent-code-reviewer`)** :
   *(Note : `src-tauri/src/target_size.rs` a déjà reçu les correctifs de la revue : `safe_media_path`, vidéos verticales via `short_side`, dimensions impaires, `-nostdin`, `-map 0:v:0 -sn -pix_fmt yuv420p` et `-n` en Passe 2).*
-  Il reste à appliquer :
+  Correctifs appliqués :
   1. **`src-tauri/src/context_menu.rs` & `src-tauri/src/cli.rs`** :
      - Ajouter `--` avant `"%1"` dans les commandes registre (`context_menu.rs`) et rejeter `%`, `\r`, `\n` dans `validate_exe_path`.
      - Ajouter `latest_job_status: Option<serde_json::Value>` dans `CliStartupState` (`cli.rs`) et restreindre `detect_media_section` aux formats supportés par la crate `image`.
@@ -81,7 +81,7 @@
      - Retirer le double `onClick` sur `<label htmlFor="context-menu-toggle">` dans `SettingsPage.tsx` et synchroniser la langue du menu contextuel dans `useSettings.ts`.
      - Désactiver le bouton Convertir dans `VideoConverter.tsx` si `estimateError` est présent.
 
-- [ ] **Étape 8 — Documentation, bump `v1.2.0` & Build Tauri final** :
+- [x] **Étape 8 — Documentation, bump `v1.2.0` & Build Tauri final** :
   - Mettre à jour `DEVLOG.md`, `README.md`, `CHANGELOG.md`, `arbo.md`.
   - Passer la version à `1.2.0` dans `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`.
   - Lancer `npx tsc --noEmit`, `npx vitest run`, `cargo test`, `cargo clippy -- -D warnings`, et `npm run tauri build`.

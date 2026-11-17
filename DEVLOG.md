@@ -269,6 +269,40 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
 - [x] **Tests & Build** : `cargo test` **32/32 tests passent (0 warning)** — `vitest` **43/43 tests passent** (6 fichiers de tests incluant `titlebar.test.tsx` et `responsive.test.tsx`) — `tsc --noEmit` & `tauri build` **0 erreur**
 - [x] **Release `v1.1.0`** : bump de version vers `1.1.0` (`tauri.conf.json`, `Cargo.toml`, `package.json`, `README.md`, `CHANGELOG.md`) et push du tag `v1.1.0` pour déclencher la publication GitHub Actions multi-plateforme (Windows / macOS / Linux)
 
+### ✅ Étape 16 — v1.2.0 : Compression vidéo « Taille cible » (2 passes) & Menu contextuel Windows Explorer (TERMINÉE)
+- [x] **Branche & Planification** : branche `feat/target-size-context-menu` créée depuis `v1.1.0`, spécification complète et contrat d'interfaces dans `PLAN-v1.2.md`.
+- [x] **Fonctionnalité 1 — Compression vidéo « Taille cible » (`src-tauri/src/target_size.rs`, `src-tauri/src/lib.rs`, `VideoConverter.tsx`)** :
+  - Mode dédié **Taille cible** dans le convertisseur vidéo (Single & Batch) avec 4 préréglages en 1 clic : **Discord (10 Mo)**, **WhatsApp (16 Mo)**, **Gmail (25 Mo)** et **Personnalisé (Mo)** (valeurs par défaut configurables dans `SettingsPage.tsx`).
+  - **Formule exacte avec budget de sécurité conteneur (95 %)** : $\text{target\_bytes} = \text{target\_mb} \times 1\,000\,000 \times 0.95$, $\text{total\_kbps} = (\text{target\_bytes} \times 8) / (\text{duration} \times 1000)$, $\text{video\_kbps} = \text{total\_kbps} - \text{audio\_kbps}$ (avec audio adaptatif AAC `128k` / `96k` / `64k`, ou `0k` si la source n'a pas de piste audio).
+  - **Encodage FFmpeg en 2 passes réelles (`libx264` H.264 / `libx265` H.265)** :
+    - Passe 1 (analyse) vers `NUL` (Windows) / `/dev/null` (Unix) avec `-passlogfile` isolé dans un dossier temporaire unique par job (`std::env::temp_dir().join("mediaforge_pass_<id>")`) nettoyé automatiquement via `PassLogGuard` (`Drop`).
+    - Passe 2 (encodage final) avec `-movflags +faststart`, `-map 0:v:0 -sn -pix_fmt yuv420p` et progression temps réel enrichie (`pass: 1/2` puis `pass: 2/2`).
+  - **Downscaling automatique intelligent (résolution + FPS)** selon le débit vidéo disponible (`< 1500 kbps` → max 1080p30, `< 800 kbps` → max 720p30, `< 400 kbps` → max 480p30, `< 200 kbps` → max 360p24, `< 100 kbps` → refus explicite avec message d'erreur clair) et badge d'aperçu temps réel avant conversion (`estimate_target_size`).
+  - **Filet de sécurité -10 % & Copie directe** : si le fichier généré dépasse malgré tout `target_mb * 1_000_000` octets, relance automatique d'une Passe 2 avec `video_kbps * 0.90` ; si le fichier source est déjà sous la cible (`copy_if_under`), copie atomique (si `.mp4`) ou remux sans perte (`-c copy -sn -movflags +faststart`).
+- [x] **Fonctionnalité 2 — Menu contextuel Windows Explorer & Mode CLI (`src-tauri/src/context_menu.rs`, `src-tauri/src/cli.rs`, `src-tauri/nsis/hooks.nsh`)** :
+  - Menu en cascade **« MediaForge »** inscrit dans `HKCU\Software\Classes\SystemFileAssociations\<ext>\shell\MediaForge` (**aucun droit Administrateur / UAC requis**) pour les extensions vidéo (`.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`), image (`.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.tiff`) et audio (`.mp3`, `.wav`, `.flac`, `.ogg`, `.aac`, `.m4a`).
+  - Sous-commandes contextuelles traduites selon la langue active : *Compresser pour Discord (10 Mo)*, *WhatsApp (16 Mo)*, *Gmail (25 Mo)*, *Convertir en MP4 / MP3 / JPG / PNG / WEBP*, et *Ouvrir dans MediaForge…*.
+  - **Mode CLI & Mini-fenêtre (`420×220`)** : support de `--action compress|convert|open`, `--preset`, `--to`, `--wait`/`--headless` ; redimensionnement et centrage automatiques en mini-fenêtre Liquid Glass avec fermeture automatique après succès.
+  - **Single-Instance & Multi-sélection Windows Explorer** : intégration de `tauri-plugin-single-instance` avec file d'attente sérialisée (`tokio::sync::Mutex<()>`) permettant de traiter séquentiellement $N$ fichiers sélectionnés simultanément dans l'Explorateur Windows.
+  - **Désinstallation propre NSIS** : hook `NSIS_HOOK_POSTUNINSTALL` dans `src-tauri/nsis/hooks.nsh` supprimant toutes les clés `HKCU\Software\Classes\SystemFileAssociations\...\shell\MediaForge`.
+- [x] **Décisions techniques autonomes prises durant l'Étape 16** :
+  1. **1 Mo décimal (`1 000 000` octets) + marge de sécurité `0.95`** : garantit qu'un preset de `10 Mo` vise `9,50 Mo` utiles et ne dépasse jamais la limite stricte des serveurs Discord/WhatsApp/Gmail après encapsulation MP4/moov.
+  2. **Downscaling basé sur le côté court (`short_side = width.min(height)`)** : préserve les vidéos verticales (`9:16`, ex. `1080×1920`) sans les écraser à tort comme des vidéos 4K paysage, et arrondit systématiquement les dimensions à l'entier pair inférieur requis par `libx264`/`libx265`.
+  3. **Registre `HKCU\Software\Classes\SystemFileAssociations`** : fonctionne immédiatement sans élévation UAC quelle que soit l'application par défaut associée à l'extension sur Windows.
+  4. **Séparateur `--` avant `"%1"` dans les commandes registre & `safe_media_path`** : protège le parseur CLI et FFmpeg/FFprobe contre les noms de fichiers commençant par un tiret (`-video.mp4` → `./-video.mp4`).
+  5. **File d'attente `tokio::sync::Mutex<()>` sur `single-instance`** : lorsque Windows Explorer lance une instance par fichier sélectionné, les instances secondaires transfèrent leurs arguments à l'instance principale qui les exécute l'une après l'autre sans erreur `"Another conversion is already in progress"`.
+- [x] **Campagne de tests E2E FFmpeg réels (`scripts/test-target-size.ps1` — 15/15 PASS)** :
+  - 5 vidéos maîtresses générées et compressées sur les 3 presets (**Discord 10 Mo**, **WhatsApp 16 Mo**, **Gmail 25 Mo**) :
+    - `1080p60_10s.mp4` (55,06 Mo) → **9,50 Mo** / **15,04 Mo** / **23,51 Mo** (`1920x1080`) ✅
+    - `1080p60_60s.mp4` (298,79 Mo) → **9,54 Mo** / **14,79 Mo** / **23,85 Mo** (`1920x1080`) ✅
+    - `1080p60_300s.mp4` (1 106,96 Mo) → **9,78 Mo** (`852x480`) / **15,51 Mo** (`852x480`) / **24,06 Mo** (`1280x720`) ✅
+    - `4k60_10s.mp4` (202,84 Mo) → **9,52 Mo** / **15,24 Mo** / **23,80 Mo** (`3840x2160`) ✅
+    - `4k30_60s.mp4` (606,83 Mo) → **9,54 Mo** / **15,22 Mo** / **23,79 Mo** (`1920x1080`) ✅
+- [x] **Revue de code indépendante (`independent-code-reviewer`) & Correctifs appliqués** :
+  - Durcissement de `validate_exe_path` (rejet de `%`, `\r`, `\n`), ajout de `--` dans les commandes registre, filtrage de `disposition.attached_pic == 1` dans `get_media_info`, copie atomique `create_new(true)` ou remux `-c copy` si déjà sous la taille cible, propagation complète de `open_files` / `"cli-open-files"` vers les 3 convertisseurs, et synchronisation de la langue du menu contextuel dans `useSettings.ts`.
+- [x] **Limitation connue Windows 11 documentée** : le menu contextuel moderne de premier niveau de Windows 11 exigeant une identité de package MSIX signée par un certificat EV payant (`IExplorerCommand`), le menu en cascade **MediaForge** apparaît dans le menu classique (**`Shift + F10`** ou **« Afficher plus d'options »**) sur Windows 11, et directement au premier niveau sur Windows 10.
+- [x] **Validation finale v1.2.0** : **57 tests unitaires Rust** + **51 tests Vitest** + **15/15 tests E2E FFmpeg** passent avec 0 warning Clippy et 0 erreur TypeScript.
+
 ---
 
 ## Décisions techniques prises
