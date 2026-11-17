@@ -32,6 +32,17 @@ pub struct TargetSizeEstimate {
     pub fps_reduced: bool,
 }
 
+/// Prepend `.\` (Windows) or `./` (Unix) when a path starts with `-` so FFmpeg/FFprobe
+/// never interprets a relative filename as a CLI option flag.
+pub fn safe_media_path(path: &str) -> String {
+    if path.starts_with('-') {
+        let prefix = if cfg!(windows) { ".\\" } else { "./" };
+        format!("{prefix}{path}")
+    } else {
+        path.to_string()
+    }
+}
+
 /// Round `v` down to the nearest even integer >= 2, as required by YUV 4:2:0 encoders.
 fn make_even(v: u32) -> u32 {
     let e = v & !1;
@@ -100,30 +111,34 @@ pub fn compute_target_size_plan(
         (src_fps.round().max(1.0) as u32, false)
     };
 
-    // Resolution height ceiling based on video_kbps (never upscale above src_h):
+    // Resolution short-side ceiling based on video_kbps (never upscale above short_side):
+    // Comparing the short side handles both landscape (e.g. 1920x1080) and portrait (e.g. 1080x1920).
     // - video_kbps < 450  -> 480p max
     // - video_kbps < 1100 -> 720p max
     // - video_kbps < 3000 -> 1080p max
-    // - video_kbps >= 3000 -> keep src_h, except sources > 1080p are capped at 1080p
+    // - video_kbps >= 3000 -> keep short_side, except sources > 1080p are capped at 1080p
     //   whenever video_kbps < 4500.
-    let max_h = if video_kbps < 450 {
+    let short_side = src_w.min(src_h);
+    let max_short_side = if video_kbps < 450 {
         480
     } else if video_kbps < 1100 {
         720
-    } else if video_kbps < 3000 || (src_h > 1080 && video_kbps < 4500) {
+    } else if video_kbps < 3000 || (short_side > 1080 && video_kbps < 4500) {
         1080
     } else {
-        src_h
+        short_side
     };
 
-    let (target_width, target_height, downscaled) = if src_h > max_h {
-        let scale_ratio = f64::from(max_h) / f64::from(src_h);
-        let target_height = make_even(max_h);
-        let target_width = make_even((f64::from(src_w) * scale_ratio).round() as u32);
-        (target_width, target_height, true)
+    let (target_width, target_height) = if short_side > max_short_side {
+        let scale_ratio = max_short_side as f64 / short_side as f64;
+        (
+            make_even((f64::from(src_w) * scale_ratio).round() as u32),
+            make_even((f64::from(src_h) * scale_ratio).round() as u32),
+        )
     } else {
-        (make_even(src_w), make_even(src_h), false)
+        (make_even(src_w), make_even(src_h))
     };
+    let downscaled = target_width != src_w || target_height != src_h;
 
     Ok(TargetSizeEstimate {
         already_under_target,
@@ -190,7 +205,7 @@ fn escape_x265_param_value(raw: &str) -> String {
     let mut escaped = String::with_capacity(raw.len());
     for (idx, ch) in raw.chars().enumerate() {
         match ch {
-            '\\' | ':' | '\'' | '=' => {
+            '\\' | ':' | '\'' | '=' | '\r' => {
                 escaped.push('\\');
                 escaped.push(ch);
             }
@@ -217,14 +232,23 @@ pub fn build_two_pass_ffmpeg_args(
 ) -> Vec<String> {
     let is_pass_one = pass == 1;
     let pass_num = if is_pass_one { "1" } else { "2" };
+    let safe_input = safe_media_path(input_path);
+    let safe_output = safe_media_path(output_path);
+    let overwrite_flag = if is_pass_one { "-y" } else { "-n" };
 
     let mut args: Vec<String> = vec![
-        "-y".into(),
+        overwrite_flag.into(),
+        "-nostdin".into(),
         "-i".into(),
-        input_path.into(),
+        safe_input,
         "-progress".into(),
         "pipe:1".into(),
         "-nostats".into(),
+        "-map".into(),
+        "0:v:0".into(),
+        "-sn".into(),
+        "-pix_fmt".into(),
+        "yuv420p".into(),
     ];
 
     let vf = match (plan.downscaled, plan.fps_reduced) {
@@ -293,6 +317,8 @@ pub fn build_two_pass_ffmpeg_args(
     } else {
         if plan.audio_kbps > 0 {
             args.extend([
+                "-map".into(),
+                "0:a:0?".into(),
                 "-c:a".into(),
                 "aac".into(),
                 "-b:a".into(),
@@ -304,8 +330,7 @@ pub fn build_two_pass_ffmpeg_args(
         args.extend([
             "-movflags".into(),
             "+faststart".into(),
-            "-nostdin".into(),
-            output_path.into(),
+            safe_output,
         ]);
     }
 
