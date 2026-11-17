@@ -4,7 +4,7 @@
 
 **Local, fast, and private media converter**
 
-[![Version](https://img.shields.io/badge/version-1.0.0-6366f1?style=flat-square)](https://github.com/Hugodlg91/MediaForge/releases)
+[![Version](https://img.shields.io/badge/version-1.1.0-6366f1?style=flat-square)](https://github.com/Hugodlg91/MediaForge/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-lightgrey?style=flat-square)](https://github.com/Hugodlg91/MediaForge/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-24c8db?style=flat-square)](https://tauri.app)
 
