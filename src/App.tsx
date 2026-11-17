@@ -51,7 +51,11 @@ function AppLayout() {
     return (
       <>
         {CONVERTER_SECTIONS.map((type) => (
-          <div key={type} hidden={section !== type}>
+          <div
+            key={type}
+            hidden={section !== type}
+            style={section === type ? { height: "100%" } : undefined}
+          >
             <SectionActiveContext.Provider value={section === type}>
               <ConverterPage type={type} />
             </SectionActiveContext.Provider>
@@ -84,9 +88,9 @@ function AppLayout() {
 
       {/* Foreground App Shell */}
       <TitleBar />
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flex: 1, overflow: "hidden" }}>
+      <div className="app-body">
         <Sidebar active={section} onChange={setSection} />
-        <main style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+        <main className="app-main">
           {renderContent()}
         </main>
       </div>
