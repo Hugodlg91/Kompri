@@ -64,15 +64,15 @@ Ajout des tailles par défaut des presets « Taille cible » (modifiables dans S
 - [x] **Étape 2 — Rédaction du plan `PLAN-v1.2.md`**
   - Critère de fini : `PLAN-v1.2.md` créé à la racine avec contrat d'interfaces et critères de validation.
 
-- [ ] **Étape 3 — Agent A (Rust Backend : Logique « Taille cible », encodage 2 passes, retry -10%, Settings & tests unitaires)**
+- [x] **Étape 3 — Agent A (Rust Backend : Logique « Taille cible », encodage 2 passes, retry -10%, Settings & tests unitaires)**
   - Périmètre : `src-tauri/src/target_size.rs`, `src-tauri/src/lib.rs` (intégration commandes target_size + champs Settings).
   - Critère de fini : `cargo test` passe avec tests unitaires sur le calcul du budget (×0.95), débit audio/vidéo, réduction automatique de résolution (1080p → 720p → 480p) et de framerate (60 → 30 i/s).
 
-- [ ] **Étape 4 — Agent B (Rust Backend : Menu contextuel Windows HKCU, CLI, Single-Instance & NSIS hook)**
+- [x] **Étape 4 — Agent B (Rust Backend : Menu contextuel Windows HKCU, CLI, Single-Instance & NSIS hook)**
   - Périmètre : `src-tauri/Cargo.toml`, `src-tauri/src/context_menu.rs`, `src-tauri/src/cli.rs`, `src-tauri/nsis/hooks.nsh`, `src-tauri/tauri.conf.json`.
   - Critère de fini : installation/désinstallation propre dans `HKCU\Software\Classes\SystemFileAssociations`, support multi-fichiers via `tauri-plugin-single-instance`, suffixes sans écrasement (`_discord.mp4`, `_whatsapp.mp4`, `_converted.ext`), tests unitaires registre HKCU + CLI.
 
-- [ ] **Étape 5 — Agent C (Frontend React : UI Taille cible, progression Passe 1/2 & 2/2, mini-vue CLI, Settings & i18n 5 langues)**
+- [x] **Étape 5 — Agent C (Frontend React : UI Taille cible, progression Passe 1/2 & 2/2, mini-vue CLI, Settings & i18n 5 langues)**
   - Périmètre : `src/hooks/useConversion.ts`, `src/hooks/useSettings.ts`, `src/components/Converter/VideoConverter.tsx`, `src/components/Converter/ProgressBar.tsx`, `src/components/Settings/SettingsPage.tsx`, `src/App.tsx`, `src/locales/{fr,en,es,de,pt}.json`.
   - Critère de fini : `npx tsc --noEmit` et `npx vitest run` passent à 100 %.
 

@@ -1,16 +1,27 @@
 import { useTranslation } from "react-i18next";
 
-interface ProgressBarProps {
+export interface ProgressBarProps {
   progress: number;
   currentTime?: string;
   speed?: string;
   currentFile?: string;
+  pass?: number | null;
+  totalPasses?: number | null;
   onCancel?: () => void;
 }
 
-export function ProgressBar({ progress, currentTime, speed, currentFile, onCancel }: ProgressBarProps) {
+export function ProgressBar({
+  progress,
+  currentTime,
+  speed,
+  currentFile,
+  pass,
+  totalPasses,
+  onCancel,
+}: ProgressBarProps) {
   const { t } = useTranslation();
   const pct = Math.round(Math.min(100, Math.max(0, progress)));
+  const showPass = Boolean(pass && totalPasses && totalPasses > 1);
 
   return (
     <div
@@ -28,6 +39,20 @@ export function ProgressBar({ progress, currentTime, speed, currentFile, onCance
           {currentFile ?? currentTime ?? "—"}
         </span>
         <div style={{ display: "flex", gap: "10px", alignItems: "center", flexShrink: 0 }}>
+          {showPass && (
+            <span
+              className="glass-badge"
+              style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "var(--accent)",
+                background: "var(--accent-dim)",
+                borderColor: "rgba(139, 122, 255, 0.35)",
+              }}
+            >
+              {t("converter.passProgress", { pass, total: totalPasses })}
+            </span>
+          )}
           {speed && (
             <span className="glass-badge" style={{ fontSize: "11px", color: "var(--text-sub)" }}>
               {speed}
