@@ -1,12 +1,16 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tauri_plugin_shell::{
     process::{CommandChild, CommandEvent},
     ShellExt,
 };
 use serde::{Deserialize, Serialize};
 use tauri_plugin_store::StoreExt;
+
+pub mod cli;
+pub mod context_menu;
+pub mod target_size;
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -76,9 +80,13 @@ struct ProgressPayload {
     percentage: f32,
     current_time: String,
     speed: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pass: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total_passes: Option<u8>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct MediaInfo {
     pub duration: f64,
     pub width: Option<u32>,
@@ -87,6 +95,9 @@ pub struct MediaInfo {
     pub audio_codec: Option<String>,
     pub file_size: u64,
     pub bitrate: Option<String>,
+    pub fps: Option<f64>,
+    pub audio_bitrate_kbps: Option<u32>,
+    pub has_audio: bool,
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -142,10 +153,24 @@ async fn run_ffmpeg(
     args: Vec<String>,
     output_path: String,
 ) -> Result<String, String> {
+    run_ffmpeg_with_pass(app, process_slot, cancel_requested, args, output_path, true, None).await
+}
+
+async fn run_ffmpeg_with_pass(
+    app: tauri::AppHandle,
+    process_slot: Arc<Mutex<Option<CommandChild>>>,
+    cancel_requested: Arc<AtomicBool>,
+    args: Vec<String>,
+    output_path: String,
+    check_output: bool,
+    pass_info: Option<(u8, u8)>,
+) -> Result<String, String> {
     if cancel_requested.load(Ordering::Acquire) {
         return Err(cancelled_error());
     }
-    ensure_output_available(&output_path)?;
+    if check_output {
+        ensure_output_available(&output_path)?;
+    }
     let (mut rx, child) = app
         .shell()
         .sidecar("ffmpeg")
@@ -168,6 +193,10 @@ async fn run_ffmpeg(
     let mut out_time_us: Option<u64> = None;
     let mut speed = String::from("N/A");
     let mut stderr_buf = String::new();
+    let (pass, total_passes) = match pass_info {
+        Some((p, t)) => (Some(p), Some(t)),
+        None => (None, None),
+    };
 
     while let Some(event) = rx.recv().await {
         match event {
@@ -196,11 +225,16 @@ async fn run_ffmpeg(
                     } else if part == "progress=continue" || part == "progress=end" {
                         if let Some(us) = out_time_us {
                             let current_secs = us as f64 / 1_000_000.0;
-                            let percentage = if total_duration > 0.0 {
+                            let raw_pct = if total_duration > 0.0 {
                                 ((current_secs / total_duration) * 100.0)
                                     .clamp(0.0, 100.0) as f32
                             } else {
                                 0.0
+                            };
+                            let percentage = match pass_info {
+                                Some((1, 2)) => (raw_pct * 0.5).clamp(0.0, 50.0),
+                                Some((2, 2)) => (50.0 + raw_pct * 0.5).clamp(50.0, 100.0),
+                                _ => raw_pct,
                             };
                             let _ = app.emit(
                                 "conversion_progress",
@@ -208,6 +242,8 @@ async fn run_ffmpeg(
                                     percentage,
                                     current_time: format_secs(current_secs),
                                     speed: speed.clone(),
+                                    pass,
+                                    total_passes,
                                 },
                             );
                         }
@@ -229,13 +265,18 @@ async fn run_ffmpeg(
                 }
 
                 return if status.code == Some(0) {
-                    // Emit 100 % on success
+                    let done_pct = match pass_info {
+                        Some((1, 2)) => 50.0,
+                        _ => 100.0,
+                    };
                     let _ = app.emit(
                         "conversion_progress",
                         ProgressPayload {
-                            percentage: 100.0,
+                            percentage: done_pct,
                             current_time: String::new(),
                             speed: String::new(),
+                            pass,
+                            total_passes,
                         },
                     );
                     Ok(output_path)
@@ -417,6 +458,8 @@ async fn get_media_info(
     let mut height = None;
     let mut video_codec = None;
     let mut audio_codec = None;
+    let mut fps = None;
+    let mut audio_bitrate_kbps = None;
 
     for stream in &streams {
         match stream["codec_type"].as_str().unwrap_or("") {
@@ -424,13 +467,31 @@ async fn get_media_info(
                 width = stream["width"].as_u64().map(|v| v as u32);
                 height = stream["height"].as_u64().map(|v| v as u32);
                 video_codec = stream["codec_name"].as_str().map(String::from);
+                if fps.is_none() {
+                    fps = stream["avg_frame_rate"]
+                        .as_str()
+                        .and_then(target_size::parse_fps_str)
+                        .or_else(|| {
+                            stream["r_frame_rate"]
+                                .as_str()
+                                .and_then(target_size::parse_fps_str)
+                        });
+                }
             }
             "audio" => {
                 audio_codec = stream["codec_name"].as_str().map(String::from);
+                if audio_bitrate_kbps.is_none() {
+                    audio_bitrate_kbps = stream["bit_rate"]
+                        .as_str()
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .map(|bps| (bps / 1000) as u32);
+                }
             }
             _ => {}
         }
     }
+
+    let has_audio = audio_codec.is_some();
 
     Ok(MediaInfo {
         duration,
@@ -440,7 +501,285 @@ async fn get_media_info(
         audio_codec,
         file_size,
         bitrate,
+        fps,
+        audio_bitrate_kbps,
+        has_audio,
     })
+}
+
+// ─── Target-size 2-pass video compression ────────────────────────────────────
+
+#[tauri::command(rename_all = "snake_case")]
+async fn estimate_target_size(
+    app: tauri::AppHandle,
+    input_path: String,
+    target_mb: f64,
+    codec: Option<String>,
+) -> Result<target_size::TargetSizeEstimate, String> {
+    let _ = codec;
+    let info = get_media_info(app, input_path).await?;
+    target_size::compute_target_size_plan(
+        target_mb,
+        info.duration,
+        info.file_size,
+        info.width.unwrap_or(1920),
+        info.height.unwrap_or(1080),
+        info.fps.unwrap_or(30.0),
+        info.has_audio,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn execute_two_pass_attempt(
+    app: &tauri::AppHandle,
+    slot: &Arc<Mutex<Option<CommandChild>>>,
+    cancel: &Arc<AtomicBool>,
+    input_path: &str,
+    output_path: &str,
+    plan: &target_size::TargetSizeEstimate,
+    codec: Option<&str>,
+    video_kbps: u32,
+) -> Result<(), String> {
+    let pass_dir = target_size::PassLogDir::new()?;
+
+    let pass1_args = target_size::build_two_pass_ffmpeg_args(
+        input_path,
+        output_path,
+        plan,
+        codec,
+        1,
+        pass_dir.path(),
+        video_kbps,
+    );
+    run_ffmpeg_with_pass(
+        app.clone(),
+        Arc::clone(slot),
+        Arc::clone(cancel),
+        pass1_args,
+        output_path.to_string(),
+        false,
+        Some((1, 2)),
+    )
+    .await?;
+
+    let pass2_args = target_size::build_two_pass_ffmpeg_args(
+        input_path,
+        output_path,
+        plan,
+        codec,
+        2,
+        pass_dir.path(),
+        video_kbps,
+    );
+    let pass2_res = run_ffmpeg_with_pass(
+        app.clone(),
+        Arc::clone(slot),
+        Arc::clone(cancel),
+        pass2_args,
+        output_path.to_string(),
+        false,
+        Some((2, 2)),
+    )
+    .await;
+
+    if pass2_res.is_err() {
+        let _ = std::fs::remove_file(output_path);
+    }
+    pass2_res.map(|_| ())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn compress_single_video_impl(
+    app: tauri::AppHandle,
+    slot: Arc<Mutex<Option<CommandChild>>>,
+    cancel: Arc<AtomicBool>,
+    input_path: String,
+    output_path: String,
+    target_mb: f64,
+    codec: Option<String>,
+    copy_if_under: bool,
+) -> Result<String, String> {
+    if cancel.load(Ordering::Acquire) {
+        return Err(cancelled_error());
+    }
+    ensure_output_available(&output_path)?;
+
+    let info = get_media_info(app.clone(), input_path.clone()).await?;
+    let plan = target_size::compute_target_size_plan(
+        target_mb,
+        info.duration,
+        info.file_size,
+        info.width.unwrap_or(1920),
+        info.height.unwrap_or(1080),
+        info.fps.unwrap_or(30.0),
+        info.has_audio,
+    )?;
+
+    if plan.already_under_target && copy_if_under {
+        std::fs::copy(&input_path, &output_path).map_err(|e| e.to_string())?;
+        let _ = app.emit(
+            "conversion_progress",
+            ProgressPayload {
+                percentage: 100.0,
+                current_time: String::new(),
+                speed: String::new(),
+                pass: None,
+                total_passes: None,
+            },
+        );
+        return Ok(output_path);
+    }
+
+    execute_two_pass_attempt(
+        &app,
+        &slot,
+        &cancel,
+        &input_path,
+        &output_path,
+        &plan,
+        codec.as_deref(),
+        plan.video_kbps,
+    )
+    .await?;
+
+    let actual_bytes = std::fs::metadata(&output_path)
+        .map_err(|e| e.to_string())?
+        .len();
+
+    if actual_bytes <= plan.target_bytes {
+        return Ok(output_path);
+    }
+
+    // Output exceeded target size: remove first output and retry ONCE with video bitrate reduced by 10%.
+    let _ = std::fs::remove_file(&output_path);
+    let retry_kbps = target_size::scale_kbps_for_retry(plan.video_kbps);
+
+    execute_two_pass_attempt(
+        &app,
+        &slot,
+        &cancel,
+        &input_path,
+        &output_path,
+        &plan,
+        codec.as_deref(),
+        retry_kbps,
+    )
+    .await?;
+
+    let retry_bytes = std::fs::metadata(&output_path)
+        .map_err(|e| e.to_string())?
+        .len();
+
+    if retry_bytes <= plan.target_bytes {
+        Ok(output_path)
+    } else {
+        let _ = std::fs::remove_file(&output_path);
+        Err(format!(
+            "Target size exceeded after retry ({} > {:.1} MB)",
+            format_byte_size(retry_bytes),
+            target_mb
+        ))
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn compress_video_to_size(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    input_path: String,
+    output_path: String,
+    target_mb: f64,
+    codec: Option<String>,
+    copy_if_under: Option<bool>,
+) -> Result<String, String> {
+    let _job = start_ffmpeg_job(&state)?;
+    let slot = Arc::clone(&state.current_process);
+    let cancel = Arc::clone(&state.cancel_requested);
+    compress_single_video_impl(
+        app,
+        slot,
+        cancel,
+        input_path,
+        output_path,
+        target_mb,
+        codec,
+        copy_if_under.unwrap_or(false),
+    )
+    .await
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn compress_video_batch_to_size(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    files: Vec<BatchMediaItem>,
+    target_mb: f64,
+    codec: Option<String>,
+    copy_if_under: Option<bool>,
+) -> Result<Vec<BatchResult>, String> {
+    let _job = start_ffmpeg_job(&state)?;
+    let total = files.len();
+    let mut results: Vec<BatchResult> = Vec::with_capacity(total);
+    let copy_under = copy_if_under.unwrap_or(true);
+
+    for (i, item) in files.into_iter().enumerate() {
+        if state.cancel_requested.load(Ordering::Acquire) {
+            return Err(cancelled_error());
+        }
+
+        let file_name = std::path::Path::new(&item.input_path)
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        let _ = app.emit(
+            "batch_progress",
+            BatchProgressPayload {
+                index: i,
+                total,
+                current_file: file_name,
+                percentage: (i as f32 / total as f32) * 100.0,
+            },
+        );
+
+        let slot = Arc::clone(&state.current_process);
+        let cancel = Arc::clone(&state.cancel_requested);
+        let res = compress_single_video_impl(
+            app.clone(),
+            slot,
+            cancel,
+            item.input_path.clone(),
+            item.output_path.clone(),
+            target_mb,
+            codec.clone(),
+            copy_under,
+        )
+        .await;
+
+        let cancelled = matches!(res, Err(ref e) if *e == cancelled_error());
+        results.push(BatchResult {
+            input: item.input_path,
+            output: item.output_path,
+            success: res.is_ok(),
+            error: res.err(),
+        });
+
+        if cancelled {
+            return Err(cancelled_error());
+        }
+    }
+
+    let _ = app.emit(
+        "batch_progress",
+        BatchProgressPayload {
+            index: total,
+            total,
+            current_file: String::new(),
+            percentage: 100.0,
+        },
+    );
+
+    Ok(results)
 }
 
 // ─── Image types ─────────────────────────────────────────────────────────────
@@ -935,6 +1274,16 @@ async fn convert_audio_batch(
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
+fn default_discord_mb() -> f64 {
+    10.0
+}
+fn default_whatsapp_mb() -> f64 {
+    16.0
+}
+fn default_gmail_mb() -> f64 {
+    25.0
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Settings {
     pub language: String,
@@ -943,6 +1292,14 @@ pub struct Settings {
     pub default_video_format: String,
     pub default_audio_format: String,
     pub default_image_format: String,
+    #[serde(default = "default_discord_mb")]
+    pub preset_discord_mb: f64,
+    #[serde(default = "default_whatsapp_mb")]
+    pub preset_whatsapp_mb: f64,
+    #[serde(default = "default_gmail_mb")]
+    pub preset_gmail_mb: f64,
+    #[serde(default)]
+    pub context_menu_enabled: bool,
 }
 
 impl Default for Settings {
@@ -954,6 +1311,10 @@ impl Default for Settings {
             default_video_format: "mp4".to_string(),
             default_audio_format: "mp3".to_string(),
             default_image_format: "webp".to_string(),
+            preset_discord_mb: default_discord_mb(),
+            preset_whatsapp_mb: default_whatsapp_mb(),
+            preset_gmail_mb: default_gmail_mb(),
+            context_menu_enabled: false,
         }
     }
 }
@@ -979,7 +1340,33 @@ async fn get_settings(app: tauri::AppHandle) -> Result<Settings, String> {
     let default_image_format = store.get("default_image_format")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or(d.default_image_format);
-    Ok(Settings { language, theme, output_dir, default_video_format, default_audio_format, default_image_format })
+    let preset_discord_mb = store.get("preset_discord_mb")
+        .and_then(|v| v.as_f64())
+        .filter(|v| v.is_finite() && *v > 0.1)
+        .unwrap_or(d.preset_discord_mb);
+    let preset_whatsapp_mb = store.get("preset_whatsapp_mb")
+        .and_then(|v| v.as_f64())
+        .filter(|v| v.is_finite() && *v > 0.1)
+        .unwrap_or(d.preset_whatsapp_mb);
+    let preset_gmail_mb = store.get("preset_gmail_mb")
+        .and_then(|v| v.as_f64())
+        .filter(|v| v.is_finite() && *v > 0.1)
+        .unwrap_or(d.preset_gmail_mb);
+    let context_menu_enabled = store.get("context_menu_enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or_else(|| context_menu::is_context_menu_registered().unwrap_or(false));
+    Ok(Settings {
+        language,
+        theme,
+        output_dir,
+        default_video_format,
+        default_audio_format,
+        default_image_format,
+        preset_discord_mb,
+        preset_whatsapp_mb,
+        preset_gmail_mb,
+        context_menu_enabled,
+    })
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -991,8 +1378,300 @@ async fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), 
     store.set("default_video_format", serde_json::json!(settings.default_video_format));
     store.set("default_audio_format", serde_json::json!(settings.default_audio_format));
     store.set("default_image_format", serde_json::json!(settings.default_image_format));
+    store.set("preset_discord_mb", serde_json::json!(settings.preset_discord_mb));
+    store.set("preset_whatsapp_mb", serde_json::json!(settings.preset_whatsapp_mb));
+    store.set("preset_gmail_mb", serde_json::json!(settings.preset_gmail_mb));
+    store.set("context_menu_enabled", serde_json::json!(settings.context_menu_enabled));
     store.save().map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// ─── Context Menu & Platform Commands ────────────────────────────────────────
+
+#[tauri::command(rename_all = "snake_case")]
+fn get_platform() -> String {
+    context_menu::current_platform().to_string()
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn get_context_menu_status() -> Result<bool, String> {
+    context_menu::is_context_menu_registered()
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn set_context_menu_enabled(
+    app: tauri::AppHandle,
+    enabled: bool,
+    language: Option<String>,
+) -> Result<bool, String> {
+    let lang = language.unwrap_or_else(|| "en".to_string());
+    let status = if enabled {
+        context_menu::register_context_menu(&lang)?
+    } else {
+        context_menu::unregister_context_menu()?
+    };
+    if let Ok(store) = app.store("settings.json") {
+        store.set("context_menu_enabled", serde_json::json!(status));
+        let _ = store.save();
+    }
+    Ok(status)
+}
+
+// ─── CLI & Single-Instance Runtime ───────────────────────────────────────────
+
+#[derive(Clone, Default)]
+pub struct CliRuntimeState {
+    pub startup: Arc<Mutex<cli::CliStartupState>>,
+}
+
+#[derive(Serialize, Clone)]
+struct CliJobStatusPayload {
+    status: String,
+    current_file: String,
+    index: usize,
+    total: usize,
+    percentage: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pass: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total_passes: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    output_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+struct CliOpenFilesPayload {
+    files: Vec<String>,
+    section: String,
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn get_cli_state(
+    cli_state: tauri::State<'_, CliRuntimeState>,
+) -> Result<cli::CliStartupState, String> {
+    let guard = cli_state.startup.lock().map_err(|e| e.to_string())?;
+    Ok(guard.clone())
+}
+
+async fn execute_cli_file_action(
+    app: &tauri::AppHandle,
+    state: &AppState,
+    action: &cli::CliAction,
+    input_path: &str,
+) -> Result<String, String> {
+    let settings = get_settings(app.clone()).await.unwrap_or_default();
+    match action {
+        cli::CliAction::Compress { preset } => {
+            let (target_mb, suffix) = match preset.as_str() {
+                "discord" => (settings.preset_discord_mb, "_discord"),
+                "whatsapp" => (settings.preset_whatsapp_mb, "_whatsapp"),
+                "gmail" => (settings.preset_gmail_mb, "_gmail"),
+                _ => (settings.preset_discord_mb, "_compressed"),
+            };
+            let output_path = cli::build_unique_cli_output_path(input_path, suffix, "mp4");
+            let _job = start_ffmpeg_job(state)?;
+            let slot = Arc::clone(&state.current_process);
+            let cancel = Arc::clone(&state.cancel_requested);
+            compress_single_video_impl(
+                app.clone(),
+                slot,
+                cancel,
+                input_path.to_string(),
+                output_path,
+                target_mb,
+                Some("h264".to_string()),
+                true,
+            )
+            .await
+        }
+        cli::CliAction::Convert { to } => {
+            let output_path = cli::build_unique_cli_output_path(input_path, "_converted", to);
+            let section = cli::detect_media_section(input_path);
+            match (section, to.as_str()) {
+                ("image", _) | (_, "jpg" | "jpeg" | "png" | "webp" | "bmp" | "tiff" | "tif") => {
+                    let _job = JobGuard::try_acquire(&state.image_busy)?;
+                    let inp = input_path.to_string();
+                    let out = output_path.clone();
+                    let fmt = to.clone();
+                    tauri::async_runtime::spawn_blocking(move || {
+                        process_single_image(&inp, &out, &fmt, Some(85), None)
+                    })
+                    .await
+                    .map_err(|e| e.to_string())??;
+                    Ok(output_path)
+                }
+                (_, "mp3" | "flac" | "wav" | "ogg" | "aac" | "m4a") => {
+                    let _job = start_ffmpeg_job(state)?;
+                    let slot = Arc::clone(&state.current_process);
+                    let cancel = Arc::clone(&state.cancel_requested);
+                    let args: Vec<String> = vec![
+                        "-i".into(),
+                        input_path.to_string(),
+                        "-progress".into(),
+                        "pipe:1".into(),
+                        "-nostats".into(),
+                        "-vn".into(),
+                        "-nostdin".into(),
+                        "-n".into(),
+                        output_path.clone(),
+                    ];
+                    run_ffmpeg(app.clone(), slot, cancel, args, output_path).await
+                }
+                _ => {
+                    let _job = start_ffmpeg_job(state)?;
+                    let slot = Arc::clone(&state.current_process);
+                    let cancel = Arc::clone(&state.cancel_requested);
+                    let args: Vec<String> = vec![
+                        "-i".into(),
+                        input_path.to_string(),
+                        "-progress".into(),
+                        "pipe:1".into(),
+                        "-nostats".into(),
+                        "-nostdin".into(),
+                        "-n".into(),
+                        output_path.clone(),
+                    ];
+                    run_ffmpeg(app.clone(), slot, cancel, args, output_path).await
+                }
+            }
+        }
+        cli::CliAction::Open => Ok(input_path.to_string()),
+    }
+}
+
+fn spawn_cli_request_handler(app: tauri::AppHandle, req: cli::CliRequest) {
+    if matches!(req.action, cli::CliAction::Open) {
+        let section = req
+            .files
+            .first()
+            .map(|f| cli::detect_media_section(f).to_string())
+            .unwrap_or_else(|| "video".to_string());
+        if let Some(cli_state) = app.try_state::<CliRuntimeState>() {
+            if let Ok(mut guard) = cli_state.startup.lock() {
+                guard.is_cli_mode = false;
+                guard.open_files = req.files.clone();
+                guard.open_section = Some(section.clone());
+            }
+        }
+        if let Some(win) = app.get_webview_window("main") {
+            let _ = win.show();
+            let _ = win.unminimize();
+            let _ = win.set_focus();
+        }
+        let _ = app.emit(
+            "cli-open-files",
+            CliOpenFilesPayload {
+                files: req.files,
+                section,
+            },
+        );
+        return;
+    }
+
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>().inner().clone();
+        let total = req.files.len();
+        let mut last_output: Option<String> = None;
+        let mut last_error: Option<String> = None;
+
+        for (idx, file_path) in req.files.iter().enumerate() {
+            let file_name = std::path::Path::new(file_path)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| file_path.clone());
+
+            let _ = app.emit(
+                "cli-job-status",
+                CliJobStatusPayload {
+                    status: "running".to_string(),
+                    current_file: file_name.clone(),
+                    index: idx,
+                    total,
+                    percentage: (idx as f32 / total.max(1) as f32) * 100.0,
+                    pass: None,
+                    total_passes: None,
+                    output_path: None,
+                    error: None,
+                },
+            );
+
+            match execute_cli_file_action(&app, &state, &req.action, file_path).await {
+                Ok(out_path) => {
+                    let src_ext = std::path::Path::new(file_path)
+                        .extension()
+                        .map(|e| e.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    let dst_ext = std::path::Path::new(&out_path)
+                        .extension()
+                        .map(|e| e.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    let now_ms = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as u64)
+                        .unwrap_or(0);
+                    let _ = add_history_item(
+                        app.clone(),
+                        HistoryItem {
+                            id: format!("cli-{now_ms}-{idx}"),
+                            file_name,
+                            media_type: cli::detect_media_section(&out_path).to_string(),
+                            source_format: src_ext,
+                            target_format: dst_ext,
+                            output_path: out_path.clone(),
+                            timestamp: now_ms,
+                            status: "success".to_string(),
+                            file_size: None,
+                        },
+                    )
+                    .await;
+                    last_output = Some(out_path);
+                }
+                Err(err) => {
+                    last_error = Some(err);
+                }
+            }
+        }
+
+        if let Some(err) = &last_error {
+            let _ = app.emit(
+                "cli-job-status",
+                CliJobStatusPayload {
+                    status: "error".to_string(),
+                    current_file: String::new(),
+                    index: total,
+                    total,
+                    percentage: 100.0,
+                    pass: None,
+                    total_passes: None,
+                    output_path: last_output.clone(),
+                    error: Some(err.clone()),
+                },
+            );
+            if req.wait {
+                app.exit(1);
+            }
+        } else {
+            let _ = app.emit(
+                "cli-job-status",
+                CliJobStatusPayload {
+                    status: "done".to_string(),
+                    current_file: String::new(),
+                    index: total,
+                    total,
+                    percentage: 100.0,
+                    pass: None,
+                    total_passes: None,
+                    output_path: last_output,
+                    error: None,
+                },
+            );
+            if req.wait {
+                app.exit(0);
+            }
+        }
+    });
 }
 
 // ─── Folder opener ───────────────────────────────────────────────────────────
@@ -1091,6 +1770,39 @@ async fn open_file(app: tauri::AppHandle, path: String) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let initial_args: Vec<String> = std::env::args().collect();
+    let initial_cli_req = cli::parse_cli_args(&initial_args);
+    let startup_state = match &initial_cli_req {
+        Some(req) => match &req.action {
+            cli::CliAction::Compress { preset } => cli::CliStartupState {
+                is_cli_mode: true,
+                action_label: Some(format!("Compress ({preset})")),
+                open_files: Vec::new(),
+                open_section: None,
+            },
+            cli::CliAction::Convert { to } => cli::CliStartupState {
+                is_cli_mode: true,
+                action_label: Some(format!("Convert → {}", to.to_uppercase())),
+                open_files: Vec::new(),
+                open_section: None,
+            },
+            cli::CliAction::Open => {
+                let section = req
+                    .files
+                    .first()
+                    .map(|f| cli::detect_media_section(f).to_string())
+                    .unwrap_or_else(|| "video".to_string());
+                cli::CliStartupState {
+                    is_cli_mode: false,
+                    action_label: None,
+                    open_files: req.files.clone(),
+                    open_section: Some(section),
+                }
+            }
+        },
+        None => cli::CliStartupState::default(),
+    };
+
     tauri::Builder::default()
         .manage(AppState {
             current_process: Arc::new(Mutex::new(None)),
@@ -1098,15 +1810,49 @@ pub fn run() {
             cancel_requested: Arc::new(AtomicBool::new(false)),
             image_busy: Arc::new(AtomicBool::new(false)),
         })
+        .manage(CliRuntimeState {
+            startup: Arc::new(Mutex::new(startup_state)),
+        })
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            if let Some(req) = cli::parse_cli_args(&argv) {
+                spawn_cli_request_handler(app.clone(), req);
+            } else if let Some(win) = app.get_webview_window("main") {
+                let _ = win.show();
+                let _ = win.unminimize();
+                let _ = win.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(move |app| {
+            if let Some(req) = initial_cli_req {
+                if !matches!(req.action, cli::CliAction::Open) {
+                    if let Some(win) = app.get_webview_window("main") {
+                        if req.wait {
+                            let _ = win.hide();
+                        } else {
+                            let _ = win.set_size(tauri::Size::Logical(tauri::LogicalSize {
+                                width: 460.0,
+                                height: 240.0,
+                            }));
+                            let _ = win.center();
+                        }
+                    }
+                }
+                spawn_cli_request_handler(app.handle().clone(), req);
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             convert_video,
             convert_audio,
             cancel_conversion,
             get_media_info,
+            estimate_target_size,
+            compress_video_to_size,
+            compress_video_batch_to_size,
             convert_image,
             convert_images_batch,
             get_image_info,
@@ -1115,6 +1861,10 @@ pub fn run() {
             open_folder,
             get_settings,
             save_settings,
+            get_platform,
+            get_context_menu_status,
+            set_context_menu_enabled,
+            get_cli_state,
             get_history,
             add_history_item,
             remove_history_item,
