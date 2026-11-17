@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useSettingsContext } from "../../context/SettingsContext";
@@ -288,16 +289,121 @@ function ThemeToggle({ value, onChange }: { value: "dark" | "light"; onChange: (
   );
 }
 
+function PresetNumberInput({
+  label,
+  value,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  onCommit: (v: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+      <label
+        style={{
+          fontSize: "10px",
+          fontWeight: 600,
+          color: "var(--muted)",
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </label>
+      <input
+        type="number"
+        min={1}
+        step={1}
+        aria-label={label}
+        className="glass-input"
+        value={draft}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setDraft(raw);
+          const n = parseFloat(raw);
+          if (!Number.isNaN(n) && n >= 1) {
+            onCommit(n);
+          }
+        }}
+        onBlur={() => {
+          const n = parseFloat(draft);
+          if (Number.isNaN(n) || n < 1) {
+            setDraft(String(value));
+          }
+        }}
+        style={{ width: "100%" }}
+      />
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettingsContext();
   const [version, setVersion] = useState("");
+  const [platform, setPlatform] = useState<string>("unknown");
+  const [contextMenuEnabled, setContextMenuEnabled] = useState<boolean>(false);
+  const [contextMenuBusy, setContextMenuBusy] = useState(false);
 
   useEffect(() => {
     getVersion().then(setVersion).catch(() => setVersion("0.1.0"));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    invoke<string>("get_platform")
+      .catch(() => "unknown")
+      .then((p) => {
+        if (cancelled) return;
+        const resolved = typeof p === "string" ? p : "unknown";
+        setPlatform(resolved);
+        if (resolved === "windows") {
+          invoke<boolean>("get_context_menu_status")
+            .catch(() => false)
+            .then((enabled) => {
+              if (!cancelled) setContextMenuEnabled(Boolean(enabled));
+            });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleLanguageChange = async (newLang: string) => {
+    await updateSettings({ language: newLang });
+    if (contextMenuEnabled) {
+      invoke("set_context_menu_enabled", { enabled: true, language: newLang }).catch(() => {});
+    }
+  };
+
+  const handleToggleContextMenu = async () => {
+    if (contextMenuBusy) return;
+    const nextValue = !contextMenuEnabled;
+    setContextMenuBusy(true);
+    try {
+      const actual = await invoke<boolean>("set_context_menu_enabled", {
+        enabled: nextValue,
+        language: settings.language,
+      });
+      const finalValue = typeof actual === "boolean" ? actual : nextValue;
+      setContextMenuEnabled(finalValue);
+      await updateSettings({ context_menu_enabled: finalValue });
+    } catch {
+      // keep previous state on error
+    } finally {
+      setContextMenuBusy(false);
+    }
+  };
 
   const handlePickFolder = async () => {
     const result = await open({ directory: true, multiple: false });
@@ -323,7 +429,7 @@ export function SettingsPage() {
             <ThemeToggle value={settings.theme} onChange={(v) => updateSettings({ theme: v })} />
           </SettingRow>
           <SettingRow label={t("settings.language")}>
-            <PillSelect value={settings.language} options={langOptions} onChange={(v) => updateSettings({ language: v })} />
+            <PillSelect value={settings.language} options={langOptions} onChange={handleLanguageChange} />
           </SettingRow>
         </SectionCard>
 
@@ -399,7 +505,87 @@ export function SettingsPage() {
               ))}
             </div>
           </div>
+
+          {/* Target size presets */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <label style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>
+              {t("settings.targetSizePresets")}
+            </label>
+            <div className="responsive-grid-3">
+              <PresetNumberInput
+                label="Discord (MB)"
+                value={settings.preset_discord_mb ?? 10}
+                onCommit={(v) => updateSettings({ preset_discord_mb: v })}
+              />
+              <PresetNumberInput
+                label="WhatsApp (MB)"
+                value={settings.preset_whatsapp_mb ?? 16}
+                onCommit={(v) => updateSettings({ preset_whatsapp_mb: v })}
+              />
+              <PresetNumberInput
+                label="Gmail (MB)"
+                value={settings.preset_gmail_mb ?? 25}
+                onCommit={(v) => updateSettings({ preset_gmail_mb: v })}
+              />
+            </div>
+          </div>
         </SectionCard>
+
+        {/* ── Windows Explorer Context Menu ────────────────────────────────── */}
+        {platform === "windows" && (
+          <SectionCard title="Windows Explorer">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 }}>
+                <label
+                  htmlFor="context-menu-toggle"
+                  style={{ fontSize: "13px", color: "var(--text)", fontWeight: 500, cursor: "pointer" }}
+                  onClick={handleToggleContextMenu}
+                >
+                  {t("settings.contextMenu")}
+                </label>
+                <span style={{ fontSize: "11px", color: "var(--muted)", lineHeight: 1.4 }}>
+                  {t("settings.contextMenuHint")}
+                </span>
+              </div>
+              <button
+                id="context-menu-toggle"
+                type="button"
+                role="switch"
+                aria-checked={contextMenuEnabled}
+                aria-label={t("settings.contextMenu")}
+                disabled={contextMenuBusy}
+                onClick={handleToggleContextMenu}
+                style={{
+                  width: "40px",
+                  height: "22px",
+                  borderRadius: "999px",
+                  background: contextMenuEnabled ? "var(--accent)" : "var(--border2)",
+                  border: "1px solid var(--border)",
+                  cursor: contextMenuBusy ? "not-allowed" : "pointer",
+                  position: "relative",
+                  transition: "background 0.15s ease",
+                  flexShrink: 0,
+                  padding: 0,
+                  opacity: contextMenuBusy ? 0.65 : 1,
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "2px",
+                    left: contextMenuEnabled ? "20px" : "2px",
+                    width: "16px",
+                    height: "16px",
+                    borderRadius: "50%",
+                    background: "#ffffff",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)",
+                    transition: "left 0.15s ease",
+                  }}
+                />
+              </button>
+            </div>
+          </SectionCard>
+        )}
 
         {/* ── About ────────────────────────────────────────────────────────── */}
         <SectionCard title={t("settings.about")}>

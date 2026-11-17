@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -6,6 +6,7 @@ import {
   MediaInfo,
   BatchMediaItem,
   BatchResult,
+  TargetSizeEstimate,
 } from "../../hooks/useConversion";
 import { buildOutputPath, formatFileSize, formatDuration } from "../../utils/path";
 import { useSettingsContext } from "../../context/SettingsContext";
@@ -193,19 +194,22 @@ function MediaBatchFileList({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+type TargetPreset = "off" | "discord" | "whatsapp" | "gmail" | "custom";
+
 export function VideoConverter() {
   const { t } = useTranslation();
   const { settings } = useSettingsContext();
   const {
-    progress, status, error, speed, currentTime,
+    progress, status, error, speed, currentTime, pass, totalPasses,
     results, batchIndex, batchTotal, currentFile,
-    convertVideo, convertVideoBatch, getMediaInfo, cancel, reset,
+    convertVideo, compressVideoToSize, convertVideoBatch, compressVideoBatchToSize,
+    getMediaInfo, estimateTargetSize, cancel, reset,
   } = useConversion();
 
   const [mode, setMode] = useState<"single" | "batch">("single");
   const [inputPath, setInputPath] = useState<string | null>(null);
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null);
-  const [outputPath, setOutputPath] = useState<string | null>(null);
+  const [finalOutputPath, setFinalOutputPath] = useState<string | null>(null);
   const [batchFiles, setBatchFiles] = useState<string[]>([]);
 
   const [outputFormat, setOutputFormat] = useState<VideoFormat>(
@@ -216,28 +220,119 @@ export function VideoConverter() {
   const [bitrate, setBitrate] = useState<string | undefined>(undefined);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  const [targetPreset, setTargetPreset] = useState<TargetPreset>("off");
+  const [customTargetMb, setCustomTargetMb] = useState<string>("10");
+  const [targetCodec, setTargetCodec] = useState<"h264" | "h265">("h264");
+  const [estimate, setEstimate] = useState<TargetSizeEstimate | null>(null);
+  const [estimateError, setEstimateError] = useState<string | null>(null);
+
+  const discordMb = settings.preset_discord_mb ?? 10;
+  const whatsappMb = settings.preset_whatsapp_mb ?? 16;
+  const gmailMb = settings.preset_gmail_mb ?? 25;
+  const activeTargetMb =
+    targetPreset === "discord"
+      ? discordMb
+      : targetPreset === "whatsapp"
+        ? whatsappMb
+        : targetPreset === "gmail"
+          ? gmailMb
+          : Math.max(1, parseFloat(customTargetMb) || 10);
+
+  const effectiveFormat: VideoFormat = targetPreset !== "off" ? "mp4" : outputFormat;
+  const outputPath = inputPath
+    ? buildOutputPath(inputPath, effectiveFormat, settings.output_dir ?? undefined)
+    : null;
+
   const isConverting = status === "converting";
   const isDone = status === "done";
+
+  useEffect(() => {
+    if (mode !== "single" || !inputPath || targetPreset === "off") {
+      setEstimate(null);
+      setEstimateError(null);
+      return;
+    }
+    let cancelled = false;
+    setEstimateError(null);
+    estimateTargetSize(inputPath, activeTargetMb, targetCodec)
+      .then((res) => {
+        if (!cancelled) {
+          setEstimate(res);
+          setEstimateError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setEstimate(null);
+          setEstimateError(String(err));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, inputPath, targetPreset, activeTargetMb, targetCodec, estimateTargetSize]);
 
   const handleFileSelected = useCallback(
     async (path: string) => {
       setInputPath(path);
-      setOutputPath(buildOutputPath(path, outputFormat, settings.output_dir ?? undefined));
+      setFinalOutputPath(null);
       reset();
       setMediaInfo(null);
       try { const info = await getMediaInfo(path); setMediaInfo(info); } catch { /* non-blocking */ }
     },
-    [outputFormat, settings.output_dir, getMediaInfo, reset]
+    [getMediaInfo, reset]
   );
+
+  const handleCopyAsIs = useCallback(async () => {
+    if (!inputPath || !outputPath) return;
+    const res = await compressVideoToSize({
+      input_path: inputPath,
+      output_path: outputPath,
+      target_mb: activeTargetMb,
+      codec: targetCodec,
+      copy_if_under: true,
+    });
+    if (typeof res === "string" && res.length > 0) setFinalOutputPath(res);
+  }, [inputPath, outputPath, activeTargetMb, targetCodec, compressVideoToSize]);
 
   const handleConvert = useCallback(async () => {
     if (!inputPath || !outputPath) return;
-    await convertVideo({ input_path: inputPath, output_path: outputPath, resolution, codec, bitrate });
-  }, [inputPath, outputPath, resolution, codec, bitrate, convertVideo]);
+    if (targetPreset !== "off") {
+      const res = await compressVideoToSize({
+        input_path: inputPath,
+        output_path: outputPath,
+        target_mb: activeTargetMb,
+        codec: targetCodec,
+        copy_if_under: false,
+      });
+      if (typeof res === "string" && res.length > 0) setFinalOutputPath(res);
+    } else {
+      const res = await convertVideo({
+        input_path: inputPath,
+        output_path: outputPath,
+        resolution,
+        codec,
+        bitrate,
+      });
+      if (typeof res === "string" && res.length > 0) setFinalOutputPath(res);
+    }
+  }, [
+    inputPath,
+    outputPath,
+    targetPreset,
+    activeTargetMb,
+    targetCodec,
+    compressVideoToSize,
+    convertVideo,
+    resolution,
+    codec,
+    bitrate,
+  ]);
 
   const handleFormatChange = (fmt: VideoFormat) => {
+    if (targetPreset !== "off") return;
     setOutputFormat(fmt);
-    if (inputPath) setOutputPath(buildOutputPath(inputPath, fmt, settings.output_dir ?? undefined));
+    setFinalOutputPath(null);
   };
 
   const handleBatchFilesAdded = useCallback(
@@ -252,10 +347,31 @@ export function VideoConverter() {
     if (batchFiles.length === 0) return;
     const files: BatchMediaItem[] = batchFiles.map((p) => ({
       input_path: p,
-      output_path: buildOutputPath(p, outputFormat, settings.output_dir ?? undefined),
+      output_path: buildOutputPath(p, effectiveFormat, settings.output_dir ?? undefined),
     }));
-    await convertVideoBatch({ files, resolution, codec, bitrate });
-  }, [batchFiles, outputFormat, settings.output_dir, resolution, codec, bitrate, convertVideoBatch]);
+    if (targetPreset !== "off") {
+      await compressVideoBatchToSize({
+        files,
+        target_mb: activeTargetMb,
+        codec: targetCodec,
+        copy_if_under: true,
+      });
+    } else {
+      await convertVideoBatch({ files, resolution, codec, bitrate });
+    }
+  }, [
+    batchFiles,
+    effectiveFormat,
+    settings.output_dir,
+    targetPreset,
+    activeTargetMb,
+    targetCodec,
+    compressVideoBatchToSize,
+    convertVideoBatch,
+    resolution,
+    codec,
+    bitrate,
+  ]);
 
   const batchProgressLabel =
     batchTotal > 0
@@ -273,59 +389,197 @@ export function VideoConverter() {
       <div className="card" style={{ padding: "14px 16px" }}>
         <p className="section-label">{t("converter.output_format")}</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-          {VIDEO_FORMATS.map((f) => (
-            <button
-              key={f}
-              onClick={() => handleFormatChange(f)}
-              className={`fmt-pill ${outputFormat === f ? "active" : ""}`}
-            >
-              {f.toUpperCase()}
-            </button>
-          ))}
+          {VIDEO_FORMATS.map((f) => {
+            const locked = targetPreset !== "off" && f !== "mp4";
+            return (
+              <button
+                key={f}
+                type="button"
+                disabled={locked}
+                onClick={() => handleFormatChange(f)}
+                className={`fmt-pill ${effectiveFormat === f ? "active" : ""}`}
+                style={locked ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
+              >
+                {f.toUpperCase()}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Advanced toggle */}
-      <button
-        onClick={() => setShowAdvanced((v) => !v)}
-        className="glass-badge"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "7px",
-          color: "var(--accent)",
-          fontSize: "12px",
-          cursor: "pointer",
-          fontWeight: 600,
-          padding: "7px 14px",
-          borderRadius: "10px",
-          width: "fit-content",
-        }}
-      >
-        <IcnSliders size={13} />
-        <span>{t("converter.advancedOptions")}</span>
-        <span style={{ display: "flex", transition: "transform 0.15s", transform: showAdvanced ? "rotate(90deg)" : "rotate(0)" }}>
-          <IcnChevronRight size={12} />
-        </span>
-      </button>
-
-      {showAdvanced && (
-        <div className="card" style={{ padding: "14px 16px" }}>
-          <div className="responsive-grid-3">
-            {[
-              { label: t("converter.resolution"), value: resolution, setter: setResolution, opts: RESOLUTIONS },
-              { label: t("converter.codec"),      value: codec,      setter: setCodec,      opts: CODECS },
-              { label: t("converter.bitrate"),    value: bitrate,    setter: setBitrate,    opts: BITRATES },
-            ].map(({ label, value, setter, opts }) => (
-              <div key={label} style={{ display: "flex", flexDirection: "column", gap: "5px", minWidth: 0 }}>
-                <label style={{ fontSize: "10px", fontWeight: 600, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</label>
-                <select value={value ?? ""} onChange={(e) => setter(e.target.value || undefined)} className="glass-select" style={selectCls}>
-                  {opts.map((o) => <option key={o.label} value={o.value ?? ""}>{o.label}</option>)}
-                </select>
-              </div>
-            ))}
-          </div>
+      {/* Target size (1-click) */}
+      <div className="card" style={{ padding: "14px 16px" }}>
+        <p className="section-label">{t("targetSize.label")}</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+          {[
+            { id: "off" as const, label: t("targetSize.off") },
+            { id: "discord" as const, label: `Discord (${discordMb} MB)` },
+            { id: "whatsapp" as const, label: `WhatsApp (${whatsappMb} MB)` },
+            { id: "gmail" as const, label: `Gmail (${gmailMb} MB)` },
+            { id: "custom" as const, label: t("targetSize.custom") },
+          ].map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => setTargetPreset(preset.id)}
+              className={`fmt-pill ${targetPreset === preset.id ? "active" : ""}`}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
+
+        {targetPreset === "custom" && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "12px" }}>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              aria-label={t("targetSize.custom")}
+              value={customTargetMb}
+              onChange={(e) => setCustomTargetMb(e.target.value)}
+              className="glass-input"
+              style={{ width: "110px" }}
+            />
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-sub)" }}>MB</span>
+          </div>
+        )}
+
+        {targetPreset !== "off" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <span
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: "var(--muted)",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {t("converter.codec")}
+              </span>
+              {(["h264", "h265"] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setTargetCodec(c)}
+                  className={`fmt-pill ${targetCodec === c ? "active" : ""}`}
+                >
+                  {c === "h264" ? "H.264" : "H.265"}
+                </button>
+              ))}
+            </div>
+
+            {mode === "single" && estimate?.already_under_target && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                  background: "var(--accent-dim)",
+                  border: "1px solid rgba(139, 122, 255, 0.3)",
+                  borderRadius: "12px",
+                  padding: "10px 14px",
+                }}
+              >
+                <span style={{ fontSize: "12px", color: "var(--text)", flex: "1 1 220px" }}>
+                  {t("targetSize.alreadyUnder", {
+                    size: formatFileSize(estimate.source_size_bytes),
+                    target: activeTargetMb,
+                  })}
+                </span>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleCopyAsIs}
+                  style={{ padding: "7px 14px", fontSize: "12px" }}
+                >
+                  {t("targetSize.copyAsIs")}
+                </button>
+              </div>
+            )}
+
+            {mode === "single" && estimate && !estimate.already_under_target && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                <span className="glass-badge">
+                  {t("targetSize.estimatedResolution")}: {estimate.target_width}×{estimate.target_height}
+                  {estimate.downscaled ? ` (${t("targetSize.downscaled")})` : ""}
+                </span>
+                <span className="glass-badge">{estimate.target_fps} fps</span>
+                <span className="glass-badge">
+                  ~{estimate.video_kbps} kbps · 2-pass {targetCodec.toUpperCase()}
+                </span>
+              </div>
+            )}
+
+            {mode === "single" && estimateError && (
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "var(--error)",
+                  background: "rgba(248, 113, 113, 0.08)",
+                  border: "1px solid rgba(248, 113, 113, 0.25)",
+                  borderRadius: "10px",
+                  padding: "8px 12px",
+                }}
+              >
+                {estimateError.toLowerCase().includes("small") || estimateError.toLowerCase().includes("faible")
+                  ? t("targetSize.tooSmall")
+                  : estimateError}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Advanced toggle (standard format conversion only) */}
+      {targetPreset === "off" && (
+        <>
+          <button
+            onClick={() => setShowAdvanced((v) => !v)}
+            className="glass-badge"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "7px",
+              color: "var(--accent)",
+              fontSize: "12px",
+              cursor: "pointer",
+              fontWeight: 600,
+              padding: "7px 14px",
+              borderRadius: "10px",
+              width: "fit-content",
+            }}
+          >
+            <IcnSliders size={13} />
+            <span>{t("converter.advancedOptions")}</span>
+            <span style={{ display: "flex", transition: "transform 0.15s", transform: showAdvanced ? "rotate(90deg)" : "rotate(0)" }}>
+              <IcnChevronRight size={12} />
+            </span>
+          </button>
+
+          {showAdvanced && (
+            <div className="card" style={{ padding: "14px 16px" }}>
+              <div className="responsive-grid-3">
+                {[
+                  { label: t("converter.resolution"), value: resolution, setter: setResolution, opts: RESOLUTIONS },
+                  { label: t("converter.codec"),      value: codec,      setter: setCodec,      opts: CODECS },
+                  { label: t("converter.bitrate"),    value: bitrate,    setter: setBitrate,    opts: BITRATES },
+                ].map(({ label, value, setter, opts }) => (
+                  <div key={label} style={{ display: "flex", flexDirection: "column", gap: "5px", minWidth: 0 }}>
+                    <label style={{ fontSize: "10px", fontWeight: 600, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</label>
+                    <select value={value ?? ""} onChange={(e) => setter(e.target.value || undefined)} className="glass-select" style={selectCls}>
+                      {opts.map((o) => <option key={o.label} value={o.value ?? ""}>{o.label}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </>
   );
@@ -415,9 +669,28 @@ export function VideoConverter() {
             </>
           )}
 
-          {isConverting && <ProgressBar progress={progress} currentTime={currentTime} speed={speed} onCancel={cancel} />}
-          {isDone && outputPath && (
-            <ConversionResult outputPath={outputPath} onNewConversion={() => { reset(); setInputPath(null); setMediaInfo(null); }} />
+          {isConverting && (
+            <ProgressBar
+              progress={progress}
+              currentTime={currentTime}
+              speed={speed}
+              pass={pass}
+              totalPasses={totalPasses}
+              onCancel={cancel}
+            />
+          )}
+          {isDone && (finalOutputPath ?? outputPath) && (
+            <ConversionResult
+              outputPath={(finalOutputPath ?? outputPath)!}
+              onNewConversion={() => {
+                reset();
+                setInputPath(null);
+                setFinalOutputPath(null);
+                setMediaInfo(null);
+                setEstimate(null);
+                setEstimateError(null);
+              }}
+            />
           )}
         </>
       )}
@@ -468,7 +741,16 @@ export function VideoConverter() {
             </>
           )}
 
-          {isConverting && <ProgressBar progress={progress} currentFile={batchProgressLabel} onCancel={cancel} />}
+          {isConverting && (
+            <ProgressBar
+              progress={progress}
+              currentFile={batchProgressLabel}
+              speed={speed}
+              pass={pass}
+              totalPasses={totalPasses}
+              onCancel={cancel}
+            />
+          )}
 
           {isDone && results && (
             <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>

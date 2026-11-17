@@ -37,7 +37,18 @@
     "error": "Fehler",
     "convert_another": "Weitere Datei konvertieren",
     "localOnly": "100% lokal — Offline-Verarbeitung",
-    "outputPreview": "Ausgabe: {{name}}"
+    "outputPreview": "Ausgabe: {{name}}",
+    "passProgress": "Durchgang {{pass}}/{{total}}"
+  },
+  "targetSize": {
+    "label": "Zielgröße (1-Klick)",
+    "off": "Aus",
+    "custom": "Benutzerdefiniert",
+    "estimatedResolution": "Geschätzte Endauflösung",
+    "downscaled": "automatisch skaliert",
+    "alreadyUnder": "Dieses Video ({{size}}) liegt bereits unter dem Ziel von {{target}} MB — keine Neukodierung nötig.",
+    "copyAsIs": "Unverändert kopieren (ohne Neukodierung)",
+    "tooSmall": "Die Zielgröße ist für die Dauer dieses Videos zu klein."
   },
   "status": {
     "ready": "Bereit",
@@ -100,6 +111,9 @@
     "defaultVideo": "Video",
     "defaultAudio": "Audio",
     "defaultImage": "Bild",
+    "targetSizePresets": "Zielgrößen-Presets (MB)",
+    "contextMenu": "In das Windows Explorer-Kontextmenü integrieren",
+    "contextMenuHint": "Fügt das MediaForge-Untermenü für Video-, Audio- und Bilddateien hinzu (HKCU, kein Admin nötig).",
     "about": "Über",
     "version": "Version",
     "localOnly": "100% lokal — keine Daten gesendet"

@@ -13,6 +13,38 @@ export interface MediaInfo {
   audio_codec?: string;
   file_size: number;
   bitrate?: string;
+  fps?: number;
+  audio_bitrate_kbps?: number;
+  has_audio?: boolean;
+}
+
+export interface TargetSizeEstimate {
+  already_under_target: boolean;
+  source_size_bytes: number;
+  target_bytes: number;
+  budget_bytes: number;
+  video_kbps: number;
+  audio_kbps: number;
+  target_width: number;
+  target_height: number;
+  target_fps: number;
+  downscaled: boolean;
+  fps_reduced: boolean;
+}
+
+export interface CompressVideoToSizeParams {
+  input_path: string;
+  output_path: string;
+  target_mb: number;
+  codec?: string;
+  copy_if_under?: boolean;
+}
+
+export interface CompressVideoBatchParams {
+  files: BatchMediaItem[];
+  target_mb: number;
+  codec?: string;
+  copy_if_under?: boolean;
 }
 
 export interface VideoConvertParams {
@@ -61,6 +93,8 @@ interface ProgressPayload {
   percentage: number;
   current_time: string;
   speed: string;
+  pass?: number;
+  total_passes?: number;
 }
 
 interface BatchProgressPayload {
@@ -101,6 +135,8 @@ export function useConversion() {
   const [error, setError] = useState<string | null>(null);
   const [speed, setSpeed] = useState("");
   const [currentTime, setCurrentTime] = useState("");
+  const [pass, setPass] = useState<number | null>(null);
+  const [totalPasses, setTotalPasses] = useState<number | null>(null);
 
   // Batch-specific state
   const [results, setResults] = useState<BatchResult[] | null>(null);
@@ -117,15 +153,19 @@ export function useConversion() {
   const unsubRef = useRef<(() => void) | null>(null);
   const batchUnsubRef = useRef<(() => void) | null>(null);
 
-  // Listen to single-file FFmpeg progress
+  // Listen to single-file FFmpeg progress (also updates speed/time/pass in batch mode)
   useEffect(() => {
     let cancel = false;
     listen<ProgressPayload>("conversion_progress", (event) => {
-      if (cancel || !ownsJobRef.current || isBatchRef.current) return;
-      const { percentage, speed, current_time } = event.payload;
-      setProgress(percentage);
+      if (cancel || !ownsJobRef.current) return;
+      const { percentage, speed, current_time, pass: p, total_passes } = event.payload;
+      if (!isBatchRef.current) {
+        setProgress(percentage);
+      }
       if (speed) setSpeed(speed);
       if (current_time) setCurrentTime(current_time);
+      setPass(p ?? null);
+      setTotalPasses(total_passes ?? null);
     }).then((unlisten) => {
       if (cancel) unlisten();
       else unsubRef.current = unlisten;
@@ -156,17 +196,46 @@ export function useConversion() {
     };
   }, []);
 
-  // ── Single-file commands ───────────────────────────────────────────────────
-
-  const convertVideo = useCallback(async (params: VideoConvertParams): Promise<string> => {
-    // Refuse before touching the state of the job already running here.
-    if (ownsJobRef.current) throw BUSY_ERROR;
+  const beginJob = useCallback((batchTotalCount?: number) => {
     setStatus("converting");
     setProgress(0);
     setError(null);
     setSpeed("");
     setCurrentTime("");
+    setPass(null);
+    setTotalPasses(null);
+    if (batchTotalCount !== undefined) {
+      setResults(null);
+      setBatchIndex(0);
+      setBatchTotal(batchTotalCount);
+      setCurrentFile(null);
+      isBatchRef.current = true;
+    }
     ownsJobRef.current = true;
+  }, []);
+
+  const handleJobError = useCallback((e: unknown): never => {
+    const msg = String(e);
+    if (msg !== "cancelled") {
+      setError(msg);
+      setStatus("error");
+    } else {
+      setStatus("idle");
+      setProgress(0);
+      setSpeed("");
+      setCurrentTime("");
+      setPass(null);
+      setTotalPasses(null);
+    }
+    throw e;
+  }, []);
+
+  // ── Single-file commands ───────────────────────────────────────────────────
+
+  const convertVideo = useCallback(async (params: VideoConvertParams): Promise<string> => {
+    // Refuse before touching the state of the job already running here.
+    if (ownsJobRef.current) throw BUSY_ERROR;
+    beginJob();
     try {
       const result = await invoke<string>("convert_video", params as unknown as Record<string, unknown>);
       setStatus("done");
@@ -182,31 +251,16 @@ export function useConversion() {
       });
       return result;
     } catch (e) {
-      const msg = String(e);
-      if (msg !== "cancelled") {
-        setError(msg);
-        setStatus("error");
-      } else {
-        setStatus("idle");
-        setProgress(0);
-        setSpeed("");
-        setCurrentTime("");
-      }
-      throw e;
+      return handleJobError(e);
     } finally {
       ownsJobRef.current = false;
     }
-  }, []);
+  }, [beginJob, handleJobError]);
 
   const convertAudio = useCallback(async (params: AudioConvertParams): Promise<string> => {
     // Refuse before touching the state of the job already running here.
     if (ownsJobRef.current) throw BUSY_ERROR;
-    setStatus("converting");
-    setProgress(0);
-    setError(null);
-    setSpeed("");
-    setCurrentTime("");
-    ownsJobRef.current = true;
+    beginJob();
     try {
       const result = await invoke<string>("convert_audio", params as unknown as Record<string, unknown>);
       setStatus("done");
@@ -222,36 +276,45 @@ export function useConversion() {
       });
       return result;
     } catch (e) {
-      const msg = String(e);
-      if (msg !== "cancelled") {
-        setError(msg);
-        setStatus("error");
-      } else {
-        setStatus("idle");
-        setProgress(0);
-        setSpeed("");
-        setCurrentTime("");
-      }
-      throw e;
+      return handleJobError(e);
     } finally {
       ownsJobRef.current = false;
     }
-  }, []);
+  }, [beginJob, handleJobError]);
+
+  const compressVideoToSize = useCallback(async (params: CompressVideoToSizeParams): Promise<string> => {
+    if (ownsJobRef.current) throw BUSY_ERROR;
+    beginJob();
+    try {
+      const result = await invoke<string>(
+        "compress_video_to_size",
+        params as unknown as Record<string, unknown>
+      );
+      setStatus("done");
+      recordHistory({
+        id: crypto.randomUUID(),
+        file_name: fileNameFromPath(params.input_path),
+        media_type: "video",
+        source_format: extFromPath(params.input_path),
+        target_format: "mp4",
+        output_path: typeof result === "string" && result.length > 0 ? result : params.output_path,
+        timestamp: Date.now(),
+        status: "success",
+      });
+      return result;
+    } catch (e) {
+      return handleJobError(e);
+    } finally {
+      ownsJobRef.current = false;
+    }
+  }, [beginJob, handleJobError]);
 
   // ── Batch commands ─────────────────────────────────────────────────────────
 
   const convertVideoBatch = useCallback(async (params: BatchVideoParams): Promise<BatchResult[]> => {
     // Refuse before touching the state of the job already running here.
     if (ownsJobRef.current) throw BUSY_ERROR;
-    setStatus("converting");
-    setProgress(0);
-    setError(null);
-    setResults(null);
-    setBatchIndex(0);
-    setBatchTotal(params.files.length);
-    setCurrentFile(null);
-    isBatchRef.current = true;
-    ownsJobRef.current = true;
+    beginJob(params.files.length);
     try {
       const res = await invoke<BatchResult[]>(
         "convert_video_batch",
@@ -273,35 +336,17 @@ export function useConversion() {
       );
       return res;
     } catch (e) {
-      const msg = String(e);
-      if (msg !== "cancelled") {
-        setError(msg);
-        setStatus("error");
-      } else {
-        setStatus("idle");
-        setProgress(0);
-        setSpeed("");
-        setCurrentTime("");
-      }
-      throw e;
+      return handleJobError(e);
     } finally {
       isBatchRef.current = false;
       ownsJobRef.current = false;
     }
-  }, []);
+  }, [beginJob, handleJobError]);
 
   const convertAudioBatch = useCallback(async (params: BatchAudioParams): Promise<BatchResult[]> => {
     // Refuse before touching the state of the job already running here.
     if (ownsJobRef.current) throw BUSY_ERROR;
-    setStatus("converting");
-    setProgress(0);
-    setError(null);
-    setResults(null);
-    setBatchIndex(0);
-    setBatchTotal(params.files.length);
-    setCurrentFile(null);
-    isBatchRef.current = true;
-    ownsJobRef.current = true;
+    beginJob(params.files.length);
     try {
       const res = await invoke<BatchResult[]>(
         "convert_audio_batch",
@@ -323,28 +368,58 @@ export function useConversion() {
       );
       return res;
     } catch (e) {
-      const msg = String(e);
-      if (msg !== "cancelled") {
-        setError(msg);
-        setStatus("error");
-      } else {
-        setStatus("idle");
-        setProgress(0);
-        setSpeed("");
-        setCurrentTime("");
-      }
-      throw e;
+      return handleJobError(e);
     } finally {
       isBatchRef.current = false;
       ownsJobRef.current = false;
     }
-  }, []);
+  }, [beginJob, handleJobError]);
+
+  const compressVideoBatchToSize = useCallback(
+    async (params: CompressVideoBatchParams): Promise<BatchResult[]> => {
+      if (ownsJobRef.current) throw BUSY_ERROR;
+      beginJob(params.files.length);
+      try {
+        const res = await invoke<BatchResult[]>(
+          "compress_video_batch_to_size",
+          params as unknown as Record<string, unknown>
+        );
+        setResults(res);
+        setStatus("done");
+        res.filter((r) => r.success).forEach((r) =>
+          recordHistory({
+            id: crypto.randomUUID(),
+            file_name: fileNameFromPath(r.input),
+            media_type: "video",
+            source_format: extFromPath(r.input),
+            target_format: extFromPath(r.output) || "mp4",
+            output_path: r.output,
+            timestamp: Date.now(),
+            status: "success",
+          })
+        );
+        return res;
+      } catch (e) {
+        return handleJobError(e);
+      } finally {
+        isBatchRef.current = false;
+        ownsJobRef.current = false;
+      }
+    },
+    [beginJob, handleJobError]
+  );
 
   // ── Shared utilities ───────────────────────────────────────────────────────
 
   const getMediaInfo = useCallback(
     (path: string): Promise<MediaInfo> =>
       invoke<MediaInfo>("get_media_info", { input_path: path }),
+    []
+  );
+
+  const estimateTargetSize = useCallback(
+    (input_path: string, target_mb: number, codec?: string): Promise<TargetSizeEstimate> =>
+      invoke<TargetSizeEstimate>("estimate_target_size", { input_path, target_mb, codec }),
     []
   );
 
@@ -361,6 +436,8 @@ export function useConversion() {
     setError(null);
     setSpeed("");
     setCurrentTime("");
+    setPass(null);
+    setTotalPasses(null);
     setResults(null);
     setBatchIndex(0);
     setBatchTotal(0);
@@ -374,15 +451,20 @@ export function useConversion() {
     error,
     speed,
     currentTime,
+    pass,
+    totalPasses,
     results,
     batchIndex,
     batchTotal,
     currentFile,
     convertVideo,
     convertAudio,
+    compressVideoToSize,
     convertVideoBatch,
     convertAudioBatch,
+    compressVideoBatchToSize,
     getMediaInfo,
+    estimateTargetSize,
     cancel,
     reset,
   };

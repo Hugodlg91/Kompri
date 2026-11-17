@@ -37,7 +37,18 @@
     "error": "Erreur",
     "convert_another": "Convertir un autre fichier",
     "localOnly": "100% local — traitement hors ligne",
-    "outputPreview": "Sortie : {{name}}"
+    "outputPreview": "Sortie : {{name}}",
+    "passProgress": "Passe {{pass}}/{{total}}"
+  },
+  "targetSize": {
+    "label": "Taille cible (1-clic)",
+    "off": "Désactivé",
+    "custom": "Personnalisé",
+    "estimatedResolution": "Résolution finale estimée",
+    "downscaled": "réduite auto",
+    "alreadyUnder": "Cette vidéo ({{size}}) est déjà sous la cible de {{target}} Mo — aucun réencodage nécessaire.",
+    "copyAsIs": "Copier tel quel (sans réencoder)",
+    "tooSmall": "La taille cible est trop faible pour la durée de cette vidéo."
   },
   "status": {
     "ready": "Prêt",
@@ -100,6 +111,9 @@
     "defaultVideo": "Vidéo",
     "defaultAudio": "Audio",
     "defaultImage": "Image",
+    "targetSizePresets": "Presets de taille cible (Mo)",
+    "contextMenu": "Intégrer au menu clic droit de l'Explorateur",
+    "contextMenuHint": "Ajoute le sous-menu MediaForge sur les fichiers vidéo, audio et image (HKCU, sans droits admin).",
     "about": "À propos",
     "version": "Version",
     "localOnly": "100% local — aucune donnée envoyée"

@@ -11,6 +11,10 @@ export interface AppSettings {
   default_video_format: string;
   default_audio_format: string;
   default_image_format: string;
+  preset_discord_mb?: number;
+  preset_whatsapp_mb?: number;
+  preset_gmail_mb?: number;
+  context_menu_enabled?: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -20,6 +24,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   default_video_format: "mp4",
   default_audio_format: "mp3",
   default_image_format: "webp",
+  preset_discord_mb: 10,
+  preset_whatsapp_mb: 16,
+  preset_gmail_mb: 25,
+  context_menu_enabled: false,
 };
 
 // ─── Theme helper ─────────────────────────────────────────────────────────────
@@ -39,9 +47,17 @@ export function useSettings() {
   useEffect(() => {
     invoke<AppSettings>("get_settings")
       .then((s) => {
-        setSettings(s);
-        applyTheme(s.theme);
-        i18n.changeLanguage(s.language);
+        const merged: AppSettings = {
+          ...DEFAULT_SETTINGS,
+          ...s,
+          preset_discord_mb: s?.preset_discord_mb ?? DEFAULT_SETTINGS.preset_discord_mb,
+          preset_whatsapp_mb: s?.preset_whatsapp_mb ?? DEFAULT_SETTINGS.preset_whatsapp_mb,
+          preset_gmail_mb: s?.preset_gmail_mb ?? DEFAULT_SETTINGS.preset_gmail_mb,
+          context_menu_enabled: s?.context_menu_enabled ?? DEFAULT_SETTINGS.context_menu_enabled,
+        };
+        setSettings(merged);
+        applyTheme(merged.theme);
+        i18n.changeLanguage(merged.language);
       })
       .catch(() => {
         // Use defaults if store unavailable; still apply default theme
