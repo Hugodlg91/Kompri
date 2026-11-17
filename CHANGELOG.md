@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0] - 2026-11-17
+
+### Added
+- **Liquid Glass UI Design System**: Refractive translucent surfaces (`backdrop-filter: blur(24px) saturate(180%)`), specular edge highlights, and animated ambient aurora background in both Dark (*Liquid Obsidian*) and Light (*Iridescent Pearl*) themes
+- **Frameless Window & Interactive Controls**: Native OS titlebar replaced (`decorations: false`) with custom Liquid Glass `TitleBar` featuring functional Close, Minimize, and Maximize/Restore buttons + double-click to maximize
+- **Full Responsive Architecture**: Adaptive layout down to `400×480` with automatic transformation of the `Sidebar` into a **Liquid Glass Bottom Navigation Dock** on compact windows (`≤ 640px`) and fluid centered containers on wide screens
+- **Enhanced Conversion History**: Instant search bar (by file name or format), media type filter tabs (*All / Image / Video / Audio*) with item counts, single-item deletion (`remove_history_item`), and automatic output file size calculation
+- **Converter UX Improvements**: Direct "Open File" button on conversion results, output filename preview badge before converting, batch toolbar with file count and one-click "Clear" button, and global keyboard shortcuts (`Ctrl+1` to `Ctrl+5`)
+
+### Fixed
+- Fixed `open_folder` IPC parameter casing (`file_path` in snake_case) across single and batch converters
+- Rendered `PillSelect` dropdowns via React Portal (`document.body`) with high-contrast `--popover-bg` to prevent clipping or stacking under sibling `backdrop-filter` cards
+
+---
+
 ## [1.0.0] - 2026-03-26
 
 ### Added

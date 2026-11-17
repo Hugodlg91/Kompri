@@ -267,6 +267,7 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
   - Conteneur centré fluide `.page-container` (`max-width: 920px`, `padding: clamp(14px, 2.8vw, 28px)`) et grilles auto-adaptatives `.responsive-grid-3` / `.responsive-grid-2` / `.history-row-grid`
   - Ajout de la suite de tests automatisés `src/__tests__/responsive.test.tsx`
 - [x] **Tests & Build** : `cargo test` **32/32 tests passent (0 warning)** — `vitest` **43/43 tests passent** (6 fichiers de tests incluant `titlebar.test.tsx` et `responsive.test.tsx`) — `tsc --noEmit` & `tauri build` **0 erreur**
+- [x] **Release `v1.1.0`** : bump de version vers `1.1.0` (`tauri.conf.json`, `Cargo.toml`, `package.json`, `README.md`, `CHANGELOG.md`) et push du tag `v1.1.0` pour déclencher la publication GitHub Actions multi-plateforme (Windows / macOS / Linux)
 
 ---
 
