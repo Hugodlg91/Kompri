@@ -196,7 +196,11 @@ function MediaBatchFileList({
 
 type TargetPreset = "off" | "discord" | "whatsapp" | "gmail" | "custom";
 
-export function VideoConverter() {
+export function VideoConverter({
+  externalFiles,
+}: {
+  externalFiles?: { files: string[]; seq: number };
+} = {}) {
   const { t } = useTranslation();
   const { settings } = useSettingsContext();
   const {
@@ -282,6 +286,18 @@ export function VideoConverter() {
     },
     [getMediaInfo, reset]
   );
+
+  useEffect(() => {
+    if (!externalFiles || externalFiles.seq === 0 || externalFiles.files.length === 0) return;
+    if (externalFiles.files.length === 1) {
+      setMode("single");
+      handleFileSelected(externalFiles.files[0]);
+    } else {
+      setMode("batch");
+      setBatchFiles(externalFiles.files);
+      reset();
+    }
+  }, [externalFiles, handleFileSelected, reset]);
 
   const handleCopyAsIs = useCallback(async () => {
     if (!inputPath || !outputPath) return;
@@ -663,7 +679,17 @@ export function VideoConverter() {
           {inputPath && !isConverting && !isDone && (
             <>
               {optionsPanel}
-              <button className="btn-primary" onClick={handleConvert} style={{ width: "100%" }}>
+              <button
+                className="btn-primary"
+                onClick={handleConvert}
+                disabled={targetPreset !== "off" && !!estimateError}
+                style={{
+                  width: "100%",
+                  ...(targetPreset !== "off" && estimateError
+                    ? { opacity: 0.5, cursor: "not-allowed" }
+                    : {}),
+                }}
+              >
                 {t("converter.convert")}
               </button>
             </>

@@ -24,6 +24,8 @@ pub struct CliStartupState {
     pub action_label: Option<String>,
     pub open_files: Vec<String>,
     pub open_section: Option<String>, // "image" | "video" | "audio"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_job_status: Option<serde_json::Value>,
 }
 
 fn is_valid_preset(preset: &str) -> bool {
@@ -209,8 +211,7 @@ pub fn detect_media_section(file_path: &str) -> &'static str {
         .unwrap_or_default();
 
     match ext.as_str() {
-        "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tiff" | "tif" | "gif" | "ico" | "avif"
-        | "heic" | "heif" | "svg" => "image",
+        "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tiff" | "tif" => "image",
         "mp3" | "flac" | "wav" | "ogg" | "aac" | "m4a" | "wma" | "opus" | "aiff" | "alac" => {
             "audio"
         }
@@ -477,6 +478,7 @@ mod tests {
             action_label: Some("Compress for Discord".to_string()),
             open_files: vec!["clip.mp4".to_string()],
             open_section: Some("video".to_string()),
+            latest_job_status: Some(serde_json::json!({ "status": "running", "percentage": 50.0 })),
         };
         let state_json = serde_json::to_string(&state).unwrap();
         let state_back: CliStartupState = serde_json::from_str(&state_json).unwrap();

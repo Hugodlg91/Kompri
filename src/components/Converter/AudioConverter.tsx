@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -182,7 +182,11 @@ function MediaBatchFileList({
   );
 }
 
-export function AudioConverter() {
+export function AudioConverter({
+  externalFiles,
+}: {
+  externalFiles?: { files: string[]; seq: number };
+} = {}) {
   const { t } = useTranslation();
   const { settings } = useSettingsContext();
   const {
@@ -218,6 +222,18 @@ export function AudioConverter() {
     },
     [outputFormat, settings.output_dir, getMediaInfo, reset]
   );
+
+  useEffect(() => {
+    if (!externalFiles || externalFiles.seq === 0 || externalFiles.files.length === 0) return;
+    if (externalFiles.files.length === 1) {
+      setMode("single");
+      handleFileSelected(externalFiles.files[0]);
+    } else {
+      setMode("batch");
+      setBatchFiles(externalFiles.files);
+      reset();
+    }
+  }, [externalFiles, handleFileSelected, reset]);
 
   const handleConvert = useCallback(async () => {
     if (!inputPath || !outputPath) return;

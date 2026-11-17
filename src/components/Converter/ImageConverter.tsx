@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import {
@@ -219,7 +219,11 @@ function BatchFileList({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ImageConverter() {
+export function ImageConverter({
+  externalFiles,
+}: {
+  externalFiles?: { files: string[]; seq: number };
+} = {}) {
   const { t } = useTranslation();
   const { settings } = useSettingsContext();
   const {
@@ -300,6 +304,18 @@ export function ImageConverter() {
     },
     [outputFormat, settings.output_dir, getImageInfo, reset]
   );
+
+  useEffect(() => {
+    if (!externalFiles || externalFiles.seq === 0 || externalFiles.files.length === 0) return;
+    if (externalFiles.files.length === 1) {
+      setMode("single");
+      handleSingleFileSelected(externalFiles.files[0]);
+    } else {
+      setMode("batch");
+      setBatchFiles(externalFiles.files);
+      reset();
+    }
+  }, [externalFiles, handleSingleFileSelected, reset]);
 
   const handleBatchFilesAdded = useCallback(
     (paths: string[]) => {

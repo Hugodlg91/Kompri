@@ -219,7 +219,13 @@ mod windows_impl {
     }
 
     fn validate_exe_path(exe_path: &str) -> Result<&str, String> {
-        if exe_path.trim().is_empty() || exe_path.contains('"') || exe_path.contains('\0') {
+        if exe_path.trim().is_empty()
+            || exe_path.contains('"')
+            || exe_path.contains('\0')
+            || exe_path.contains('%')
+            || exe_path.contains('\r')
+            || exe_path.contains('\n')
+        {
             return Err("Invalid executable path for registry command".to_string());
         }
         Ok(exe_path)
@@ -283,7 +289,7 @@ mod windows_impl {
             let (cmd_key, _) = item_key
                 .create_subkey("command")
                 .map_err(|e| format!("Failed to create command key for '{}': {e}", item.subkey))?;
-            let command_line = format!("\"{exe_path}\" {} \"%1\"", item.cli_args);
+            let command_line = format!("\"{exe_path}\" {} -- \"%1\"", item.cli_args);
             cmd_key
                 .set_value("", &command_line)
                 .map_err(|e| format!("Failed to set command for '{}': {e}", item.subkey))?;
@@ -534,25 +540,25 @@ mod tests {
             let discord_cmd = discord_item.open_subkey("command").unwrap();
             assert_eq!(
                 read_val(&discord_cmd, ""),
-                format!("\"{exe}\" --action compress --preset discord \"%1\"")
+                format!("\"{exe}\" --action compress --preset discord -- \"%1\"")
             );
 
             let whatsapp_cmd = mp4_root.open_subkey(r"shell\02_whatsapp\command").unwrap();
             assert_eq!(
                 read_val(&whatsapp_cmd, ""),
-                format!("\"{exe}\" --action compress --preset whatsapp \"%1\"")
+                format!("\"{exe}\" --action compress --preset whatsapp -- \"%1\"")
             );
 
             let mp4_cmd = mp4_root.open_subkey(r"shell\03_mp4\command").unwrap();
             assert_eq!(
                 read_val(&mp4_cmd, ""),
-                format!("\"{exe}\" --action convert --to mp4 \"%1\"")
+                format!("\"{exe}\" --action convert --to mp4 -- \"%1\"")
             );
 
             let open_cmd = mp4_root.open_subkey(r"shell\99_open\command").unwrap();
             assert_eq!(
                 read_val(&open_cmd, ""),
-                format!("\"{exe}\" --action open \"%1\"")
+                format!("\"{exe}\" --action open -- \"%1\"")
             );
 
             // Verify all 18 extensions were registered
@@ -577,12 +583,12 @@ mod tests {
             let mp3_cmd = mp3_item.open_subkey("command").unwrap();
             assert_eq!(
                 read_val(&mp3_cmd, ""),
-                format!("\"{exe}\" --action convert --to mp3 \"%1\"")
+                format!("\"{exe}\" --action convert --to mp3 -- \"%1\"")
             );
             let mp3_open_cmd = mp3_root.open_subkey(r"shell\99_open\command").unwrap();
             assert_eq!(
                 read_val(&mp3_open_cmd, ""),
-                format!("\"{exe}\" --action open \"%1\"")
+                format!("\"{exe}\" --action open -- \"%1\"")
             );
             assert!(mp3_root.open_subkey(r"shell\01_discord").is_err());
 
@@ -594,25 +600,25 @@ mod tests {
             assert_eq!(read_val(&jpg_item, "MUIVerb"), "Convertir en JPG");
             assert_eq!(
                 read_val(&jpg_item.open_subkey("command").unwrap(), ""),
-                format!("\"{exe}\" --action convert --to jpg \"%1\"")
+                format!("\"{exe}\" --action convert --to jpg -- \"%1\"")
             );
             let png_item = png_root.open_subkey(r"shell\02_png").unwrap();
             assert_eq!(read_val(&png_item, "MUIVerb"), "Convertir en PNG");
             assert_eq!(
                 read_val(&png_item.open_subkey("command").unwrap(), ""),
-                format!("\"{exe}\" --action convert --to png \"%1\"")
+                format!("\"{exe}\" --action convert --to png -- \"%1\"")
             );
             let webp_item = png_root.open_subkey(r"shell\03_webp").unwrap();
             assert_eq!(read_val(&webp_item, "MUIVerb"), "Convertir en WebP");
             let webp_cmd = webp_item.open_subkey("command").unwrap();
             assert_eq!(
                 read_val(&webp_cmd, ""),
-                format!("\"{exe}\" --action convert --to webp \"%1\"")
+                format!("\"{exe}\" --action convert --to webp -- \"%1\"")
             );
             let png_open_cmd = png_root.open_subkey(r"shell\99_open\command").unwrap();
             assert_eq!(
                 read_val(&png_open_cmd, ""),
-                format!("\"{exe}\" --action open \"%1\"")
+                format!("\"{exe}\" --action open -- \"%1\"")
             );
 
             // Re-register with English and confirm label update
@@ -642,6 +648,17 @@ mod tests {
             assert!(register_context_menu_at(TEST_PREFIX, "", "en").is_err());
             assert!(
                 register_context_menu_at(TEST_PREFIX, r#"C:\bad"path\MediaForge.exe"#, "en")
+                    .is_err()
+            );
+            assert!(
+                register_context_menu_at(TEST_PREFIX, r"C:\%TEMP%\MediaForge.exe", "en").is_err()
+            );
+            assert!(
+                register_context_menu_at(TEST_PREFIX, "C:\\bad\npath\\MediaForge.exe", "en")
+                    .is_err()
+            );
+            assert!(
+                register_context_menu_at(TEST_PREFIX, "C:\\bad\rpath\\MediaForge.exe", "en")
                     .is_err()
             );
             assert!(register_context_menu_at("", r"C:\MediaForge.exe", "en").is_err());
