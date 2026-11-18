@@ -1974,7 +1974,7 @@ dependencies = [
 
 [[package]]
 name = "kompri"
-version = "1.2.1"
+version = "1.2.2"
 dependencies = [
  "image",
  "serde",
