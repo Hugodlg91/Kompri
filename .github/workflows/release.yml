@@ -152,6 +152,33 @@ jobs:
           "$FFMPEG_BIN" -version
           "$FFPROBE_BIN" -version
 
+          # Verify all video & audio encoders used by MediaForge are compiled in:
+          # - Video: libx264 (H.264 / MP4 / MKV / MOV / target-size), libx265 (H.265),
+          #          libvpx-vp9 (VP9 / WebM), mpeg4 (AVI default video)
+          # - Audio: aac (AAC / M4A / MP4 / MOV / target-size), libmp3lame (MP3 / AVI),
+          #          flac (FLAC), libvorbis (OGG / MKV default audio),
+          #          libopus (WebM default audio), pcm_s16le (WAV)
+          ENCODERS_OUT=$("$FFMPEG_BIN" -hide_banner -encoders)
+          REQUIRED_ENCODERS=(
+            libx264
+            libx265
+            libvpx-vp9
+            mpeg4
+            aac
+            libmp3lame
+            flac
+            libvorbis
+            libopus
+            pcm_s16le
+          )
+          for enc in "${REQUIRED_ENCODERS[@]}"; do
+            if ! echo "$ENCODERS_OUT" | grep -E "^[[:space:]]*[A-Z\.]{6}[[:space:]]+${enc}([[:space:]]|$)" > /dev/null; then
+              echo "::error::Bundled FFmpeg is missing required encoder: ${enc}"
+              exit 1
+            fi
+            echo "Verified encoder: ${enc}"
+          done
+
           SMOKE_MP4="smoke_test_$$.mp4"
           trap 'rm -f "$SMOKE_MP4"' EXIT
 
