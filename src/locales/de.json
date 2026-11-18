@@ -113,9 +113,10 @@
     "defaultImage": "Bild",
     "targetSizePresets": "Zielgrößen-Presets (MB)",
     "contextMenu": "In das Windows Explorer-Kontextmenü integrieren",
-    "contextMenuHint": "Fügt das MediaForge-Untermenü für Video-, Audio- und Bilddateien hinzu (HKCU, kein Admin nötig).",
+    "contextMenuHint": "Fügt das Kompri-Untermenü für Video-, Audio- und Bilddateien hinzu (HKCU, kein Admin nötig).",
     "about": "Über",
     "version": "Version",
+    "formerlyName": "Ehemals MediaForge",
     "localOnly": "100% lokal — keine Daten gesendet",
     "thirdPartyLicenses": "Drittanbieter-Lizenzen",
     "thirdPartyLicensesClose": "Schließen"

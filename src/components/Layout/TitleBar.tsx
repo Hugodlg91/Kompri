@@ -224,7 +224,7 @@ export function TitleBar() {
             color: "var(--text-sub)",
           }}
         >
-          MEDIAFORGE
+          KOMPRI
         </span>
       </div>
 

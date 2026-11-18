@@ -161,7 +161,7 @@ pub fn compute_target_size_plan(
 pub struct PassLogDir(pub PathBuf);
 
 impl PassLogDir {
-    /// Create a unique temporary directory `mediaforge-2pass-{pid}-{nanos}-{counter}`
+    /// Create a unique temporary directory `kompri-2pass-{pid}-{nanos}-{counter}`
     /// inside `std::env::temp_dir()`.
     pub fn new() -> Result<Self, String> {
         let temp_root = std::env::temp_dir();
@@ -175,7 +175,7 @@ impl PassLogDir {
                 .map(|d| d.as_nanos())
                 .unwrap_or(0);
             let counter = PASS_LOG_COUNTER.fetch_add(1, Ordering::Relaxed);
-            let dir_path = temp_root.join(format!("mediaforge-2pass-{pid}-{nanos}-{counter}"));
+            let dir_path = temp_root.join(format!("kompri-2pass-{pid}-{nanos}-{counter}"));
 
             match std::fs::create_dir(&dir_path) {
                 Ok(()) => return Ok(Self(dir_path)),
@@ -583,7 +583,7 @@ mod tests {
             downscaled: true,
             fps_reduced: true,
         };
-        let pass_dir = Path::new(r"C:\Temp\mediaforge café");
+        let pass_dir = Path::new(r"C:\Temp\kompri café");
         let expected_null = if cfg!(windows) { "NUL" } else { "/dev/null" };
 
         // H.264 Pass 1 (default codec None)
@@ -693,7 +693,7 @@ mod tests {
                 .file_name()
                 .and_then(|n| n.to_str())
                 .expect("utf-8 dir name");
-            assert!(dir_name.starts_with("mediaforge-2pass-"));
+            assert!(dir_name.starts_with("kompri-2pass-"));
 
             let dummy_log = created_path.join("ffmpeg2pass-0.log");
             std::fs::write(&dummy_log, b"stats").expect("write dummy log");
@@ -758,7 +758,7 @@ mod tests {
             downscaled: true,
             fps_reduced: false,
         };
-        let pass_dir = Path::new("mediaforge-test-pass");
+        let pass_dir = Path::new("kompri-test-pass");
 
         let pass1 = build_two_pass_ffmpeg_args(
             "-y.mp4",

@@ -113,9 +113,10 @@
     "defaultImage": "Imagem",
     "targetSizePresets": "Predefinições de tamanho alvo (MB)",
     "contextMenu": "Integrar ao menu de contexto do Explorador",
-    "contextMenuHint": "Adiciona o submenu MediaForge em arquivos de vídeo, áudio e imagem (HKCU, sem admin).",
+    "contextMenuHint": "Adiciona o submenu Kompri em arquivos de vídeo, áudio e imagem (HKCU, sem admin).",
     "about": "Sobre",
     "version": "Versão",
+    "formerlyName": "Anteriormente MediaForge",
     "localOnly": "100% local — nenhum dado enviado",
     "thirdPartyLicenses": "Licenças de terceiros",
     "thirdPartyLicensesClose": "Fechar"

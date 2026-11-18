@@ -1513,9 +1513,9 @@ async fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), 
 // ─── Context Menu & Platform Commands ────────────────────────────────────────
 
 const FALLBACK_THIRD_PARTY_NOTICES: &str = "\
-# Third-Party Notices & Licenses — MediaForge
+# Third-Party Notices & Licenses — Kompri
 
-MediaForge bundles external FFmpeg and FFprobe binaries as sidecar executables and uses open-source libraries.
+Kompri bundles external FFmpeg and FFprobe binaries as sidecar executables and uses open-source libraries.
 
 ## FFmpeg & FFprobe (Bundled Sidecar Binaries)
 - **License**: GNU General Public License v3.0 (GPL-3.0) — bundled builds are compiled with `--enable-gpl` and include `libx264` and `libx265` (upgrading LGPL components to GPL v3).
@@ -1574,7 +1574,7 @@ fn get_third_party_notices() -> String {
                 exe_dir
                     .join("..")
                     .join("lib")
-                    .join("MediaForge")
+                    .join("Kompri")
                     .join("_up_")
                     .join("THIRD_PARTY_NOTICES.md"),
             );
@@ -1582,7 +1582,7 @@ fn get_third_party_notices() -> String {
                 exe_dir
                     .join("..")
                     .join("lib")
-                    .join("mediaforge")
+                    .join("kompri")
                     .join("_up_")
                     .join("THIRD_PARTY_NOTICES.md"),
             );
@@ -2306,7 +2306,7 @@ mod tests {
         assert!(notices.contains("GPL"), "missing GPL in: {notices}");
 
         let fallback = load_third_party_notices_from_candidates(&[
-            std::path::PathBuf::from("__nonexistent_mediaforge_notices__.md"),
+            std::path::PathBuf::from("__nonexistent_kompri_notices__.md"),
         ]);
         assert!(fallback.contains("FFmpeg"));
         assert!(fallback.contains("GPL-3.0"));

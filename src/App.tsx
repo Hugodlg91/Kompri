@@ -254,7 +254,7 @@ function AppLayout() {
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
               <span className="glass-badge" style={{ color: "var(--accent)", background: "var(--accent-dim)" }}>
-                {cliState.action_label || "MediaForge"}
+                {cliState.action_label || "Kompri"}
               </span>
               {totalFiles > 1 && (
                 <span className="glass-badge">
