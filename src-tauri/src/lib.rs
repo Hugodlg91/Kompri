@@ -1410,8 +1410,56 @@ async fn convert_audio_batch(
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
+/// Discord's free upload limit is 20 MB since August 2026 (was 10 MB).
 fn default_discord_mb() -> f64 {
-    10.0
+    20.0
+}
+
+/// Default Discord preset shipped up to v1.2.x, migrated once to the new default.
+const LEGACY_DEFAULT_DISCORD_MB: f64 = 10.0;
+
+/// Store key marking that the one-time Discord 10 -> 20 MB migration already ran.
+const DISCORD_20MB_MIGRATION_KEY: &str = "discord_20mb_migrated";
+
+/// Returns the new Discord preset if `stored` is exactly the old default (10 MB);
+/// `None` (keep as is) for a customized value or when nothing is stored.
+fn migrated_discord_preset_mb(stored: Option<f64>) -> Option<f64> {
+    match stored {
+        Some(v) if (v - LEGACY_DEFAULT_DISCORD_MB).abs() < f64::EPSILON => Some(default_discord_mb()),
+        _ => None,
+    }
+}
+
+/// Minimal key/value view of `settings.json`, so migrations can be unit-tested without a Tauri app.
+trait SettingsKv {
+    fn get_value(&self, key: &str) -> Option<serde_json::Value>;
+    fn set_value(&mut self, key: &str, value: serde_json::Value);
+}
+
+struct StoreKv<'a, R: tauri::Runtime>(&'a tauri_plugin_store::Store<R>);
+
+impl<R: tauri::Runtime> SettingsKv for StoreKv<'_, R> {
+    fn get_value(&self, key: &str) -> Option<serde_json::Value> {
+        self.0.get(key)
+    }
+    fn set_value(&mut self, key: &str, value: serde_json::Value) {
+        self.0.set(key, value);
+    }
+}
+
+/// One-time settings migrations, run at startup before anything reads the presets
+/// (UI, CLI and Explorer context menu all go through `get_settings`).
+/// Returns `true` if the store was changed (the caller saves it).
+fn apply_settings_migrations(kv: &mut impl SettingsKv) -> bool {
+    if kv.get_value(DISCORD_20MB_MIGRATION_KEY).and_then(|v| v.as_bool()) == Some(true) {
+        return false;
+    }
+    let stored = kv.get_value("preset_discord_mb").and_then(|v| v.as_f64());
+    if let Some(new_mb) = migrated_discord_preset_mb(stored) {
+        kv.set_value("preset_discord_mb", serde_json::json!(new_mb));
+    }
+    kv.set_value(DISCORD_20MB_MIGRATION_KEY, serde_json::json!(true));
+    true
 }
 fn default_whatsapp_mb() -> f64 {
     16.0
@@ -2090,6 +2138,9 @@ pub fn run() {
         .setup(move |app| {
             let (language, context_menu_enabled) = match app.store("settings.json") {
                 Ok(store) => {
+                    if apply_settings_migrations(&mut StoreKv(&store)) {
+                        let _ = store.save();
+                    }
                     let language = store
                         .get("language")
                         .and_then(|v| v.as_str().map(String::from))
@@ -2336,6 +2387,74 @@ mod tests {
         assert!(fallback.contains("gyan.dev"));
         assert!(fallback.contains("eugeneware"));
         assert!(fallback.contains("johnvansickle"));
+    }
+
+    // ── Discord 10 -> 20 MB settings migration ───────────────────────────────
+
+    impl SettingsKv for std::collections::HashMap<String, serde_json::Value> {
+        fn get_value(&self, key: &str) -> Option<serde_json::Value> {
+            self.get(key).cloned()
+        }
+        fn set_value(&mut self, key: &str, value: serde_json::Value) {
+            self.insert(key.to_string(), value);
+        }
+    }
+
+    fn kv(pairs: &[(&str, serde_json::Value)]) -> std::collections::HashMap<String, serde_json::Value> {
+        pairs.iter().map(|(k, v)| (k.to_string(), v.clone())).collect()
+    }
+
+    #[test]
+    fn test_default_discord_preset_is_20mb() {
+        assert_eq!(Settings::default().preset_discord_mb, 20.0);
+        assert_eq!(Settings::default().preset_whatsapp_mb, 16.0);
+        assert_eq!(Settings::default().preset_gmail_mb, 25.0);
+        assert!(!Settings::default().target_size_max_quality);
+    }
+
+    #[test]
+    fn test_discord_migration_old_default_10_becomes_20() {
+        // settings.json written by v1.2.x with the untouched 10 MB default.
+        let mut store = kv(&[
+            ("preset_discord_mb", serde_json::json!(10.0)),
+            ("preset_whatsapp_mb", serde_json::json!(16.0)),
+        ]);
+        assert!(apply_settings_migrations(&mut store));
+        assert_eq!(store["preset_discord_mb"], serde_json::json!(20.0));
+        assert_eq!(store[DISCORD_20MB_MIGRATION_KEY], serde_json::json!(true));
+        assert_eq!(store["preset_whatsapp_mb"], serde_json::json!(16.0));
+
+        // Integer form written by some JSON writers.
+        let mut store_int = kv(&[("preset_discord_mb", serde_json::json!(10))]);
+        assert!(apply_settings_migrations(&mut store_int));
+        assert_eq!(store_int["preset_discord_mb"], serde_json::json!(20.0));
+    }
+
+    #[test]
+    fn test_discord_migration_keeps_customized_values() {
+        for custom in [8.0, 9.5, 10.5, 12.0, 15.0, 25.0] {
+            let mut store = kv(&[("preset_discord_mb", serde_json::json!(custom))]);
+            assert!(apply_settings_migrations(&mut store));
+            assert_eq!(store["preset_discord_mb"], serde_json::json!(custom), "custom {custom}");
+            assert_eq!(store[DISCORD_20MB_MIGRATION_KEY], serde_json::json!(true));
+        }
+    }
+
+    #[test]
+    fn test_discord_migration_runs_only_once() {
+        // Already migrated, then the user deliberately chose 10 MB again: keep it.
+        let mut store = kv(&[
+            ("preset_discord_mb", serde_json::json!(10.0)),
+            (DISCORD_20MB_MIGRATION_KEY, serde_json::json!(true)),
+        ]);
+        assert!(!apply_settings_migrations(&mut store));
+        assert_eq!(store["preset_discord_mb"], serde_json::json!(10.0));
+
+        // Fresh install (nothing stored): only the marker is written, default 20 applies.
+        let mut fresh = kv(&[]);
+        assert!(apply_settings_migrations(&mut fresh));
+        assert!(!fresh.contains_key("preset_discord_mb"));
+        assert!(!apply_settings_migrations(&mut fresh));
     }
 }
 
