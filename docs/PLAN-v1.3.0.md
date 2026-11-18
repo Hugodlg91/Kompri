@@ -44,6 +44,6 @@
   - `README.md`, `CHANGELOG.md`, `DEVLOG.md` mis à jour ; version passée à `1.3.0` dans `package.json`, `package-lock.json`, `src-tauri/Cargo.toml` et `src-tauri/tauri.conf.json`.
   - *Critère de fini* : démo régénérée sans erreur, docs et versions alignées sur `1.3.0`.
 
-- [ ] **Étape 7 — Revue de code indépendante & Build Tauri final**
+- [x] **Étape 7 — Revue de code indépendante & Build Tauri final**
   - Audit complet du diff par un sous-agent relecteur indépendant (`research`), application des éventuels correctifs, passage complet de la boucle de vérification (`tsc`, `vitest`, `cargo test`, `cargo clippy --all-targets -- -D warnings`) et `npm run tauri build`.
   - *Critère de fini* : 0 problème bloquant en revue et build Tauri release `1.3.0` réussi.

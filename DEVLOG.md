@@ -420,8 +420,9 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
   - **WhatsApp 16 Mo** : la FAQ officielle de WhatsApp n'a pas pu être lue. Des sources secondaires indiquent que la limite de 16 Mo est obsolète (limites plus élevées depuis 2022). Non modifié ; à vérifier par Hugo.
   - **Discord 20 Mo** : FAQ du Centre d'aide « File Attachments » (support.discord.com/hc/en-us/articles/25444343291031) indique 20 Mo sans Nitro. La page a renvoyé 403 ; confirmé via le résumé de recherche. Documentation développeur (docs.discord.com/developers/reference) : « The default limit is 20 MiB ».
   - **Gmail 25 Mo** : confirmé (support.google.com/mail/answer/6584).
-- [ ] **Revue indépendante (Opus)** : à venir
-- [ ] **Build Tauri complet** : à venir
+- [x] **Revue indépendante (sous-agent Opus, non auteur)** : aucun bloquant. Corrigé : `--max-quality false` (séparé par un espace) activait le mode et prenait « false » pour un fichier (+ rejet de `--max-quality=<invalide>`) ; docs qui attribuaient le gain au débruitage alors qu'il vient surtout du preset slow ; débruitage à 60 i/s avant la réduction de fps (ordre changé, ~2× plus rapide) ; avertissement H.265 ajouté aussi en conversion classique ; exemple `--max-quality=false` ; nom de fichier erroné dans le PLAN ; commentaire protégeant l'ordre migration → sync menu → CLI. Laissé tel quel (antérieur au lot) : le libellé du menu clic droit affiche « Discord (20 Mo) » même si le preset a été personnalisé.
+- [x] **Build Tauri complet** : `npm run tauri build` → `Kompri_1.3.0_x64-setup.exe` + `Kompri_1.3.0_x64_en-US.msi`.
+- [x] **Validation** : **74/74 tests Rust**, **61/61 tests Vitest**, **0 warning Clippy** (`--all-targets -D warnings`), **0 erreur TypeScript**.
 
 ---
 
