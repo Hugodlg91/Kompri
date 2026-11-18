@@ -26,6 +26,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify tag matches tauri.conf.json version
+        shell: bash
+        run: |
+          CONF_VER=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          EXPECTED_TAG="v${CONF_VER}"
+          if [ "${GITHUB_REF_NAME}" != "${EXPECTED_TAG}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match tauri.conf.json version (${EXPECTED_TAG})"
+            exit 1
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -73,18 +83,34 @@ jobs:
           Copy-Item "$binDir\ffmpeg.exe"  "src-tauri\binaries\ffmpeg-x86_64-pc-windows-msvc.exe"  -Force
           Copy-Item "$binDir\ffprobe.exe" "src-tauri\binaries\ffprobe-x86_64-pc-windows-msvc.exe" -Force
 
-      # ── FFmpeg — macOS ─────────────────────────────────────────────────────
-      - name: Download FFmpeg (macOS)
+      # ── FFmpeg — macOS (Static aarch64-apple-darwin) ──────────────────────
+      - name: Download Static FFmpeg (macOS arm64)
         if: matrix.platform == 'macos-latest'
         run: |
-          brew install ffmpeg
-          # Homebrew path differs between ARM (Apple Silicon) and Intel runners
-          FFMPEG_PATH=$(which ffmpeg)
-          FFPROBE_PATH=$(which ffprobe)
-          cp "$FFMPEG_PATH"  src-tauri/binaries/ffmpeg-aarch64-apple-darwin
-          cp "$FFPROBE_PATH" src-tauri/binaries/ffprobe-aarch64-apple-darwin
-          chmod +x src-tauri/binaries/ffmpeg-aarch64-apple-darwin
-          chmod +x src-tauri/binaries/ffprobe-aarch64-apple-darwin
+          set -euo pipefail
+          FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-arm64.gz"
+          FFPROBE_URL="https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-darwin-arm64.gz"
+          curl -fSL "$FFMPEG_URL" -o /tmp/ffmpeg-darwin-arm64.gz
+          curl -fSL "$FFPROBE_URL" -o /tmp/ffprobe-darwin-arm64.gz
+          echo "8923876afa8db5585022d7860ec7e589af192f441c56793971276d450ed3bbfa  /tmp/ffmpeg-darwin-arm64.gz" | shasum -a 256 -c -
+          echo "d986a8ec7b030899fe66a8a288ed809a3543338705a3ce178cfb85869c5d80be  /tmp/ffprobe-darwin-arm64.gz" | shasum -a 256 -c -
+          gunzip -c /tmp/ffmpeg-darwin-arm64.gz > src-tauri/binaries/ffmpeg-aarch64-apple-darwin
+          gunzip -c /tmp/ffprobe-darwin-arm64.gz > src-tauri/binaries/ffprobe-aarch64-apple-darwin
+          chmod +x src-tauri/binaries/ffmpeg-aarch64-apple-darwin src-tauri/binaries/ffprobe-aarch64-apple-darwin
+
+      - name: Verify macOS FFmpeg static linkage (otool -L)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          set -euo pipefail
+          for bin in src-tauri/binaries/ffmpeg-aarch64-apple-darwin src-tauri/binaries/ffprobe-aarch64-apple-darwin; do
+            echo "=== otool -L $bin ==="
+            OTOOL_OUT=$(otool -L "$bin")
+            echo "$OTOOL_OUT"
+            if echo "$OTOOL_OUT" | grep -E "(/opt/homebrew|/usr/local)"; then
+              echo "::error::$bin dynamically links to Homebrew or /usr/local!"
+              exit 1
+            fi
+          done
 
       # ── FFmpeg — Linux ─────────────────────────────────────────────────────
       - name: Download FFmpeg (Linux)
@@ -98,6 +124,40 @@ jobs:
           cp "$FOLDER/ffprobe" src-tauri/binaries/ffprobe-x86_64-unknown-linux-gnu
           chmod +x src-tauri/binaries/ffmpeg-x86_64-unknown-linux-gnu
           chmod +x src-tauri/binaries/ffprobe-x86_64-unknown-linux-gnu
+
+      # ── FFmpeg Smoke Test (All Platforms) ──────────────────────────────────
+      - name: Smoke test bundled FFmpeg & FFprobe
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.platform }}" in
+            windows-latest)
+              FFMPEG_BIN="src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe"
+              FFPROBE_BIN="src-tauri/binaries/ffprobe-x86_64-pc-windows-msvc.exe"
+              ;;
+            macos-latest)
+              FFMPEG_BIN="src-tauri/binaries/ffmpeg-aarch64-apple-darwin"
+              FFPROBE_BIN="src-tauri/binaries/ffprobe-aarch64-apple-darwin"
+              ;;
+            ubuntu-22.04)
+              FFMPEG_BIN="src-tauri/binaries/ffmpeg-x86_64-unknown-linux-gnu"
+              FFPROBE_BIN="src-tauri/binaries/ffprobe-x86_64-unknown-linux-gnu"
+              ;;
+            *)
+              echo "::error::Unsupported matrix platform: ${{ matrix.platform }}"
+              exit 1
+              ;;
+          esac
+
+          "$FFMPEG_BIN" -version
+          "$FFPROBE_BIN" -version
+
+          SMOKE_MP4="smoke_test_$$.mp4"
+          trap 'rm -f "$SMOKE_MP4"' EXIT
+
+          "$FFMPEG_BIN" -y -f lavfi -i "testsrc2=size=320x240:rate=30" -f lavfi -i "sine=frequency=440:sample_rate=48000" -t 1 -c:v libx264 -pix_fmt yuv420p -c:a aac "$SMOKE_MP4"
+          "$FFPROBE_BIN" -v error -show_format -show_streams "$SMOKE_MP4"
+          rm -f "$SMOKE_MP4"
 
       # ── Build & publish ────────────────────────────────────────────────────
       - name: Build and publish
