@@ -465,14 +465,12 @@ fn parse_ffprobe_json(v: &serde_json::Value, file_size: u64) -> MediaInfo {
                         });
                 }
             }
-            "audio" => {
-                if audio_codec.is_none() {
-                    audio_codec = stream["codec_name"].as_str().map(String::from);
-                    audio_bitrate_kbps = stream["bit_rate"]
-                        .as_str()
-                        .and_then(|s| s.parse::<u64>().ok())
-                        .map(|bps| (bps / 1000) as u32);
-                }
+            "audio" if audio_codec.is_none() => {
+                audio_codec = stream["codec_name"].as_str().map(String::from);
+                audio_bitrate_kbps = stream["bit_rate"]
+                    .as_str()
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .map(|bps| (bps / 1000) as u32);
             }
             _ => {}
         }
@@ -1950,7 +1948,7 @@ async fn get_history(app: tauri::AppHandle) -> Result<Vec<HistoryItem>, String> 
         .unwrap_or_default();
     // Already stored newest-first, but re-sort for safety
     let mut items = items;
-    items.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    items.sort_by_key(|a| std::cmp::Reverse(a.timestamp));
     Ok(items)
 }
 
