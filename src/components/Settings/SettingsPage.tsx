@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useSettingsContext } from "../../context/SettingsContext";
-import { IcnChevronDown, IcnFolder, IcnX, IcnCheck, IcnMoon, IcnSun, IcnSparkles } from "../ui/Icons";
+import { IcnChevronDown, IcnFolder, IcnX, IcnCheck, IcnMoon, IcnSun, IcnSparkles, IcnFile } from "../ui/Icons";
 
 const LANGUAGES = [
   { code: "fr", label: "Français" },
@@ -18,6 +18,28 @@ const LANGUAGES = [
 const VIDEO_FORMATS = ["mp4", "mkv", "avi", "mov", "webm"];
 const AUDIO_FORMATS = ["mp3", "flac", "wav", "ogg", "aac", "m4a"];
 const IMAGE_FORMATS = ["png", "jpg", "webp", "bmp", "tiff"];
+
+const FALLBACK_THIRD_PARTY_NOTICES = `Third-Party Software Notices — MediaForge
+
+MediaForge bundles unmodified static binaries of FFmpeg and FFprobe as local sidecars for offline media conversion and probing.
+
+1. FFmpeg & FFprobe
+   License: GNU General Public License v3.0 (GPLv3)
+   Reason:  Prebuilt binaries are compiled with GPL-licensed encoders and libraries (--enable-gpl --enable-version3 --enable-libx264 --enable-libx265).
+
+   Platform Binaries:
+   - Windows (x86_64): gyan.dev FFmpeg Essentials / Full builds
+     https://www.gyan.dev/ffmpeg/builds/
+   - macOS (arm64 / aarch64): eugeneware/ffmpeg-static (static Darwin builds)
+     https://github.com/eugeneware/ffmpeg-static
+   - Linux (x86_64): johnvansickle.com static FFmpeg builds
+     https://johnvansickle.com/ffmpeg/
+
+   Corresponding Source Code:
+   - Official FFmpeg website & source tarballs: https://ffmpeg.org
+   - Official FFmpeg Git mirror: https://github.com/FFmpeg/FFmpeg
+
+   You may obtain the complete corresponding source code for FFmpeg under the terms of the GNU General Public License v3.0 at the links above.`;
 
 // ── PillSelect with SVG chevron ──────────────────────────────────────────────
 
@@ -353,10 +375,36 @@ export function SettingsPage() {
   const [platform, setPlatform] = useState<string>("unknown");
   const [contextMenuEnabled, setContextMenuEnabled] = useState<boolean>(false);
   const [contextMenuBusy, setContextMenuBusy] = useState(false);
+  const [licensesOpen, setLicensesOpen] = useState(false);
+  const [licensesText, setLicensesText] = useState<string>(FALLBACK_THIRD_PARTY_NOTICES);
 
   useEffect(() => {
     getVersion().then(setVersion).catch(() => setVersion("0.1.0"));
   }, []);
+
+  useEffect(() => {
+    if (!licensesOpen) return;
+    let cancelled = false;
+    invoke<string>("get_third_party_notices")
+      .then((notice) => {
+        if (cancelled) return;
+        const resolved =
+          typeof notice === "string" && notice.trim().length > 0
+            ? notice
+            : FALLBACK_THIRD_PARTY_NOTICES;
+        setLicensesText((prev) => (prev === resolved ? prev : resolved));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLicensesText((prev) =>
+            prev === FALLBACK_THIRD_PARTY_NOTICES ? prev : FALLBACK_THIRD_PARTY_NOTICES
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [licensesOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -646,6 +694,64 @@ export function SettingsPage() {
               <span style={{ fontSize: "11px", color: "var(--success)", fontWeight: 600 }}>{t("settings.localOnly")}</span>
             </div>
           </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: "10px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="btn-ghost"
+              data-testid="third-party-licenses-btn"
+              aria-expanded={licensesOpen}
+              onClick={() => setLicensesOpen((prev) => !prev)}
+              style={{ fontSize: "12px", padding: "7px 12px" }}
+            >
+              <IcnFile size={13} />
+              <span>{t("settings.thirdPartyLicenses")}</span>
+            </button>
+          </div>
+
+          {licensesOpen && (
+            <div
+              className="fade-in glass-panel"
+              data-testid="third-party-licenses-panel"
+              style={{
+                padding: "14px",
+                background: "var(--surface2)",
+                border: "1px solid var(--border2)",
+                borderRadius: "12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  data-testid="third-party-licenses-close"
+                  onClick={() => setLicensesOpen(false)}
+                  style={{ fontSize: "11px", padding: "4px 10px" }}
+                >
+                  <IcnX size={12} />
+                  <span>{t("settings.thirdPartyLicensesClose")}</span>
+                </button>
+              </div>
+              <pre
+                style={{
+                  margin: 0,
+                  maxHeight: "260px",
+                  overflowY: "auto",
+                  fontFamily: "var(--font-family-mono)",
+                  fontSize: "11px",
+                  lineHeight: 1.55,
+                  color: "var(--text-sub)",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {licensesText}
+              </pre>
+            </div>
+          )}
         </SectionCard>
 
       </div>
