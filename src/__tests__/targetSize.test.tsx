@@ -680,6 +680,95 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
       expect(loc.settings.targetSizePresets).toBeTruthy();
       expect(loc.settings.contextMenu).toBeTruthy();
       expect(loc.settings.contextMenuHint).toBeTruthy();
+      expect(loc.settings.thirdPartyLicenses).toBeTruthy();
+      expect(loc.settings.thirdPartyLicensesClose).toBeTruthy();
     }
+  });
+
+  it("displays and closes the third-party FFmpeg license notice panel in SettingsPage", async () => {
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") {
+        return Promise.resolve({
+          language: "en",
+          theme: "dark",
+          output_dir: null,
+          default_video_format: "mp4",
+          default_audio_format: "mp3",
+          default_image_format: "webp",
+        });
+      }
+      if (command === "get_platform") return Promise.resolve("linux");
+      if (command === "get_third_party_notices") return Promise.reject(new Error("unavailable"));
+      return Promise.resolve();
+    });
+
+    const { container, unmount } = render(
+      <SettingsProvider>
+        <SettingsPage />
+      </SettingsProvider>
+    );
+
+    const openBtn = await screen.findByTestId("third-party-licenses-btn");
+    expect(openBtn).toHaveClass("btn-ghost");
+    expect(openBtn).toHaveTextContent(en.settings.thirdPartyLicenses);
+    expect(screen.queryByTestId("third-party-licenses-panel")).toBeNull();
+
+    fireEvent.click(openBtn);
+
+    await waitFor(() => {
+      expect(mocks.invoke).toHaveBeenCalledWith("get_third_party_notices");
+    });
+
+    const panel = await screen.findByTestId("third-party-licenses-panel");
+    expect(panel).toHaveClass("glass-panel");
+    expect(panel).toHaveTextContent(/FFmpeg & FFprobe/i);
+    expect(panel).toHaveTextContent(/GPLv3/);
+    expect(panel).toHaveTextContent(/gyan\.dev/);
+    expect(panel).toHaveTextContent(/eugeneware\/ffmpeg-static/);
+    expect(panel).toHaveTextContent(/johnvansickle\.com/);
+    expect(panel).toHaveTextContent(/https:\/\/ffmpeg\.org/);
+    expect(panel).toHaveTextContent(/https:\/\/github\.com\/FFmpeg\/FFmpeg/);
+
+    const scrollablePre = container.querySelector("pre");
+    expect(scrollablePre).not.toBeNull();
+    expect(scrollablePre?.style.maxHeight).toBe("260px");
+    expect(scrollablePre?.style.overflowY).toBe("auto");
+
+    const closeBtn = screen.getByRole("button", {
+      name: en.settings.thirdPartyLicensesClose,
+    });
+    fireEvent.click(closeBtn);
+    expect(screen.queryByTestId("third-party-licenses-panel")).toBeNull();
+    unmount();
+
+    // When backend returns third-party notices, the fetched text is displayed
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") {
+        return Promise.resolve({
+          language: "en",
+          theme: "dark",
+          output_dir: null,
+          default_video_format: "mp4",
+          default_audio_format: "mp3",
+          default_image_format: "webp",
+        });
+      }
+      if (command === "get_platform") return Promise.resolve("linux");
+      if (command === "get_third_party_notices") {
+        return Promise.resolve("FFmpeg Custom Backend Notice — GPLv3 https://ffmpeg.org");
+      }
+      return Promise.resolve();
+    });
+
+    render(
+      <SettingsProvider>
+        <SettingsPage />
+      </SettingsProvider>
+    );
+
+    fireEvent.click(await screen.findByTestId("third-party-licenses-btn"));
+    expect(
+      await screen.findByText(/FFmpeg Custom Backend Notice — GPLv3/)
+    ).toBeInTheDocument();
   });
 });

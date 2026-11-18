@@ -732,4 +732,60 @@ mod tests {
         assert_eq!(scale_kbps_for_retry(26), 25);
         assert_eq!(scale_kbps_for_retry(10), 25);
     }
+
+    #[test]
+    fn test_dash_y_filename_cannot_inject_ffmpeg_option() {
+        let expected_input = if cfg!(windows) { r".\-y.mp4" } else { "./-y.mp4" };
+        let expected_output = if cfg!(windows) {
+            r".\-y_discord.mp4"
+        } else {
+            "./-y_discord.mp4"
+        };
+
+        assert_eq!(safe_media_path("-y.mp4"), expected_input);
+        assert_eq!(safe_media_path("-y_discord.mp4"), expected_output);
+
+        let plan = TargetSizeEstimate {
+            already_under_target: false,
+            source_size_bytes: 50_000_000,
+            target_bytes: 10_000_000,
+            budget_bytes: 9_500_000,
+            video_kbps: 1000,
+            audio_kbps: 96,
+            target_width: 1280,
+            target_height: 720,
+            target_fps: 30,
+            downscaled: true,
+            fps_reduced: false,
+        };
+        let pass_dir = Path::new("mediaforge-test-pass");
+
+        let pass1 = build_two_pass_ffmpeg_args(
+            "-y.mp4",
+            "-y_discord.mp4",
+            &plan,
+            Some("h264"),
+            1,
+            pass_dir,
+            plan.video_kbps,
+        );
+        assert!(has_arg_pair(&pass1, "-i", expected_input));
+        assert!(!pass1.iter().any(|a| a == "-y.mp4" || a == "-y_discord.mp4"));
+
+        let pass2 = build_two_pass_ffmpeg_args(
+            "-y.mp4",
+            "-y_discord.mp4",
+            &plan,
+            Some("h264"),
+            2,
+            pass_dir,
+            plan.video_kbps,
+        );
+        assert_eq!(pass2[0], "-n");
+        assert!(has_arg_pair(&pass2, "-i", expected_input));
+        assert_eq!(pass2.last().map(String::as_str), Some(expected_output));
+        assert!(!pass2
+            .iter()
+            .any(|a| a == "-y" || a == "-y.mp4" || a == "-y_discord.mp4"));
+    }
 }

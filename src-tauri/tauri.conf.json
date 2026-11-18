@@ -1,7 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "MediaForge",
-  "version": "1.2.0",
+  "mainBinaryName": "MediaForge",
+  "version": "1.2.1",
   "identifier": "com.mediaforge.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -21,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://asset.localhost blob: data:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost; media-src 'self' asset: http://asset.localhost https://asset.localhost blob: data:; object-src 'none'; base-uri 'self'"
     }
   },
   "bundle": {
@@ -35,9 +36,13 @@
     ],
     "targets": "all",
     "category": "Utility",
-    "copyright": "Copyright © 2026 MediaForge",
-    "shortDescription": "Convertisseur de médias local, rapide et privé.",
-    "longDescription": "MediaForge est un outil de bureau permettant de convertir des images, vidéos et audios entièrement hors ligne.",
+    "copyright": "Copyright © 2026 VladimirWRLD",
+    "shortDescription": "Local, fast, and private media converter.",
+    "longDescription": "MediaForge is a desktop utility to convert and compress images, videos, and audio files 100% offline.",
+    "resources": [
+      "../THIRD_PARTY_NOTICES.md",
+      "../licenses/*"
+    ],
     "macOS": {
       "entitlements": null,
       "exceptionDomain": "",
