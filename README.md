@@ -1,25 +1,27 @@
 <div align="center">
 
-# MediaForge
+# Kompri
 
 **Local, fast, and private media converter**
 
-[![Version](https://img.shields.io/badge/version-1.2.1-6366f1?style=flat-square)](https://github.com/Hugodlg91/MediaForge/releases)
-[![CI](https://github.com/Hugodlg91/MediaForge/actions/workflows/ci.yml/badge.svg)](https://github.com/Hugodlg91/MediaForge/actions/workflows/ci.yml)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-lightgrey?style=flat-square)](https://github.com/Hugodlg91/MediaForge/releases)
+*Kompri (formerly MediaForge)*
+
+[![Version](https://img.shields.io/badge/version-1.2.2-6366f1?style=flat-square)](https://github.com/Hugodlg91/Kompri/releases)
+[![CI](https://github.com/Hugodlg91/Kompri/actions/workflows/ci.yml/badge.svg)](https://github.com/Hugodlg91/Kompri/actions/workflows/ci.yml)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-lightgrey?style=flat-square)](https://github.com/Hugodlg91/Kompri/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-24c8db?style=flat-square)](https://tauri.app)
 
 <br />
 
-![MediaForge Demo](docs/assets/mediaforge-demo.gif)
+![Kompri Demo](docs/assets/kompri-demo.gif)
 
 </div>
 
 ---
 
-## What is MediaForge?
+## What is Kompri?
 
-MediaForge is a desktop application that converts images, videos, and audio files **entirely on your machine** — no upload, no internet connection required, no account to create, no ads.
+Kompri is a desktop application that converts images, videos, and audio files **entirely on your machine** — no upload, no internet connection required, no account to create, no ads.
 
 It is designed for anyone who needs reliable, fast media conversion without sacrificing privacy or having to deal with bloated web tools or watermarks.
 
@@ -27,22 +29,31 @@ It is designed for anyone who needs reliable, fast media conversion without sacr
 
 ## Installation & First Launch
 
-Download the latest installer for your platform from the [**Releases**](https://github.com/Hugodlg91/MediaForge/releases/latest) page:
+Download the latest installer for your platform from the [**Releases**](https://github.com/Hugodlg91/Kompri/releases/latest) page:
 
-- **Windows**: `MediaForge_1.2.1_x64-setup.exe` (recommended) or `MediaForge_1.2.1_x64_en-US.msi`
-- **macOS (Apple Silicon)**: `MediaForge_1.2.1_aarch64.dmg`
-- **Linux**: `MediaForge_1.2.1_amd64.AppImage` or `MediaForge_1.2.1_amd64.deb`
+- **Windows**: `Kompri_1.2.2_x64-setup.exe` (recommended) or `Kompri_1.2.2_x64_en-US.msi`
+- **macOS (Apple Silicon)**: `Kompri_1.2.2_aarch64.dmg`
+- **Linux**: `Kompri_1.2.2_amd64.AppImage`, `Kompri_1.2.2_amd64.deb` or `Kompri-1.2.2-1.x86_64.rpm`
 
 > [!NOTE]
 > **First-launch security warning (Windows SmartScreen & macOS Gatekeeper)**
-> MediaForge is an independent, free project and its binaries are not signed with a paid commercial code-signing certificate. Your OS will display a standard warning the very first time you launch it:
+> Kompri is an independent, free project and its binaries are not signed with a paid commercial code-signing certificate. Your OS will display a standard warning the very first time you launch it:
 >
 > - **Windows (SmartScreen — *"Windows protected your PC"* / *"Windows a protégé votre ordinateur"*)**:
 >   Click **More info** (*« Informations complémentaires »*) → **Run anyway** (*« Exécuter quand même »*).
-> - **macOS (Gatekeeper — *"MediaForge cannot be opened because the developer cannot be verified"* / *"est endommagé"*)**:
->   Move `MediaForge.app` to `/Applications`, then either:
->   - Run in Terminal: `xattr -cr /Applications/MediaForge.app`
->   - Or **Right-click → Open** on `MediaForge.app` (or allow it in **System Settings → Privacy & Security → Open Anyway**).
+> - **macOS (Gatekeeper — *"Kompri cannot be opened because the developer cannot be verified"* / *"est endommagé"*)**:
+>   Move `Kompri.app` to `/Applications`, then either:
+>   - Run in Terminal: `xattr -cr /Applications/Kompri.app`
+>   - Or **Right-click → Open** on `Kompri.app` (or allow it in **System Settings → Privacy & Security → Open Anyway**).
+
+### Upgrading from MediaForge (v1.2.1 and earlier)
+
+MediaForge was renamed **Kompri** in v1.2.2. Your settings and conversion history are kept on every platform (the app identifier `com.mediaforge.app` did not change).
+
+- **Windows (`.exe` installer)**: just run `Kompri_1.2.2_x64-setup.exe`. It silently uninstalls MediaForge first (program files, Start Menu and Desktop shortcuts, old `MediaForge` right-click menu) without touching your settings or history. If the right-click menu was enabled, it comes back as **Kompri** the first time Kompri starts. A MediaForge shortcut you pinned to the taskbar must be pinned again.
+- **Windows (`.msi`)**: `Kompri_1.2.2_x64_en-US.msi` upgrades an existing MediaForge `.msi` install in place. Do not mix the two formats: if you installed MediaForge with the `.exe`, use the Kompri `.exe` (and vice versa), otherwise uninstall MediaForge from *Settings → Apps* first.
+- **macOS**: the new `Kompri.app` does **not** replace `MediaForge.app` (different app name). After installing Kompri, drag `/Applications/MediaForge.app` to the Trash. Your settings are shared and stay in place.
+- **Linux**: the `.deb` / `.rpm` package name changed, so the MediaForge package is not removed automatically. Remove it with your package manager (for example `dpkg -l | grep -i forge` to find its name, then `sudo apt remove <name>`). AppImage users can simply delete the old `MediaForge_*.AppImage`.
 
 ---
 
@@ -76,26 +87,26 @@ Download the latest installer for your platform from the [**Releases**](https://
 - One-click actions directly from Windows Explorer:
   - *Compress for Discord (10 MB)* / *WhatsApp (16 MB)* / *Gmail (25 MB)*
   - *Convert to MP4 / MP3 / JPG / PNG / WEBP*
-  - *Open in MediaForge…*
+  - *Open in Kompri…*
 - **Compact 420×220 mini-window** for context-menu conversions with auto-close on completion, single-instance multi-file queue forwarding, and clean NSIS uninstall hook
-- **Known Windows 11 limitation**: Because Windows 11's modern top-level context menu requires a paid EV code-signing certificate (`IExplorerCommand` + Sparse MSIX identity), MediaForge's cascading menu appears under the classic context menu (**`Shift + F10`** or **"Show more options"**).
+- **Known Windows 11 limitation**: Because Windows 11's modern top-level context menu requires a paid EV code-signing certificate (`IExplorerCommand` + Sparse MSIX identity), Kompri's cascading menu appears under the classic context menu (**`Shift + F10`** or **"Show more options"**).
 
 ### 💻 Command-Line Interface (CLI)
-MediaForge can also be automated from a terminal or script:
+Kompri can also be automated from a terminal or script:
 
 ```bash
 # Compress video(s) to a platform preset (discord | whatsapp | gmail)
-MediaForge.exe --action compress --preset discord -- "C:\Videos\clip.mp4"
+Kompri.exe --action compress --preset discord -- "C:\Videos\clip.mp4"
 
 # Convert media file(s) directly to a target format (mp4 | mp3 | jpg | png | webp)
-MediaForge.exe --action convert --to mp4 -- "C:\Videos\clip.mov"
-MediaForge.exe --action convert --to webp -- "C:\Images\photo.png"
+Kompri.exe --action convert --to mp4 -- "C:\Videos\clip.mov"
+Kompri.exe --action convert --to webp -- "C:\Images\photo.png"
 
-# Open file(s) directly inside the MediaForge converter UI
-MediaForge.exe --action open -- "C:\Audio\track.wav"
+# Open file(s) directly inside the Kompri converter UI
+Kompri.exe --action open -- "C:\Audio\track.wav"
 
 # Headless / synchronous execution for scripts (--wait / --headless)
-MediaForge.exe --action compress --preset whatsapp --wait -- "C:\Videos\clip.mp4"
+Kompri.exe --action compress --preset whatsapp --wait -- "C:\Videos\clip.mp4"
 ```
 
 ### ✨ General
@@ -118,7 +129,7 @@ MediaForge.exe --action compress --preset whatsapp --wait -- "C:\Videos\clip.mp4
 | Video & audio conversion | FFmpeg (bundled sidecar) |
 | Image conversion | Rust `image` crate v0.25 |
 | Settings, history & single-instance | `tauri-plugin-store`, `tauri-plugin-single-instance`, `winreg` (Windows) |
-| Tests | Vitest (55 tests) + Rust `#[cfg(test)]` (63 tests) |
+| Tests | Vitest (55 tests) + Rust `#[cfg(test)]` (65 tests) |
 
 ---
 
@@ -160,9 +171,9 @@ Generates native installers in `src-tauri/target/release/bundle/`:
 
 | Platform | Output |
 |---|---|
-| Windows | `MediaForge_1.2.1_x64-setup.exe` (NSIS) + `MediaForge_1.2.1_x64_en-US.msi` |
-| macOS | `MediaForge_1.2.1_aarch64.dmg` |
-| Linux | `MediaForge_1.2.1_amd64.AppImage` + `MediaForge_1.2.1_amd64.deb` |
+| Windows | `Kompri_1.2.2_x64-setup.exe` (NSIS) + `Kompri_1.2.2_x64_en-US.msi` |
+| macOS | `Kompri_1.2.2_aarch64.dmg` |
+| Linux | `Kompri_1.2.2_amd64.AppImage` + `Kompri_1.2.2_amd64.deb` |
 
 > **Note:** Each platform can only build its own native installer. Use a CI/CD pipeline (e.g. GitHub Actions) to build all three simultaneously.
 
@@ -183,6 +194,6 @@ Free to use and contribute — commercial resale prohibited.
 
 ## Third-Party Licenses
 
-MediaForge bundles standalone **FFmpeg** and **FFprobe** binaries executed as external sidecar processes (`tauri-plugin-shell`) for video and audio processing. Because these prebuilt FFmpeg/FFprobe binaries are compiled with `--enable-gpl --enable-version3` (including `libx264` and `libx265`), they are governed by the **GNU General Public License v3.0 (GPLv3)**.
+Kompri bundles standalone **FFmpeg** and **FFprobe** binaries executed as external sidecar processes (`tauri-plugin-shell`) for video and audio processing. Because these prebuilt FFmpeg/FFprobe binaries are compiled with `--enable-gpl --enable-version3` (including `libx264` and `libx265`), they are governed by the **GNU General Public License v3.0 (GPLv3)**.
 
 See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for platform-specific versions, build providers, and corresponding source code URLs, and [`licenses/FFmpeg-GPLv3.txt`](licenses/FFmpeg-GPLv3.txt) for the full GPLv3 license text.
