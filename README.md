@@ -6,7 +6,7 @@
 
 *Kompri (formerly MediaForge)*
 
-[![Version](https://img.shields.io/badge/version-1.2.2-6366f1?style=flat-square)](https://github.com/Hugodlg91/Kompri/releases)
+[![Version](https://img.shields.io/badge/version-1.3.0-6366f1?style=flat-square)](https://github.com/Hugodlg91/Kompri/releases)
 [![CI](https://github.com/Hugodlg91/Kompri/actions/workflows/ci.yml/badge.svg)](https://github.com/Hugodlg91/Kompri/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-lightgrey?style=flat-square)](https://github.com/Hugodlg91/Kompri/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-24c8db?style=flat-square)](https://tauri.app)
@@ -31,9 +31,9 @@ It is designed for anyone who needs reliable, fast media conversion without sacr
 
 Download the latest installer for your platform from the [**Releases**](https://github.com/Hugodlg91/Kompri/releases/latest) page:
 
-- **Windows**: `Kompri_1.2.2_x64-setup.exe` (recommended) or `Kompri_1.2.2_x64_en-US.msi`
-- **macOS (Apple Silicon)**: `Kompri_1.2.2_aarch64.dmg`
-- **Linux**: `Kompri_1.2.2_amd64.AppImage`, `Kompri_1.2.2_amd64.deb` or `Kompri-1.2.2-1.x86_64.rpm`
+- **Windows**: `Kompri_1.3.0_x64-setup.exe` (recommended) or `Kompri_1.3.0_x64_en-US.msi`
+- **macOS (Apple Silicon)**: `Kompri_1.3.0_aarch64.dmg`
+- **Linux**: `Kompri_1.3.0_amd64.AppImage`, `Kompri_1.3.0_amd64.deb` or `Kompri-1.3.0-1.x86_64.rpm`
 
 > [!NOTE]
 > **First-launch security warning (Windows SmartScreen & macOS Gatekeeper)**
@@ -50,8 +50,8 @@ Download the latest installer for your platform from the [**Releases**](https://
 
 MediaForge was renamed **Kompri** in v1.2.2. Your settings and conversion history are kept on every platform (the app identifier `com.mediaforge.app` did not change).
 
-- **Windows (`.exe` installer)**: just run `Kompri_1.2.2_x64-setup.exe`. It offers to close MediaForge if it is running, then silently uninstalls it first (program files, Start Menu and Desktop shortcuts, old `MediaForge` right-click menu) without touching your settings or history. If the right-click menu was enabled, it comes back as **Kompri** the first time Kompri starts. A MediaForge shortcut you pinned to the taskbar must be pinned again.
-- **Windows (`.msi`)**: `Kompri_1.2.2_x64_en-US.msi` replaces an existing MediaForge `.msi` install (MediaForge is removed, Kompri goes to `Program Files\Kompri`). Do not mix the two formats: if you installed MediaForge with the `.exe`, use the Kompri `.exe` (and vice versa), otherwise uninstall MediaForge from *Settings → Apps* first.
+- **Windows (`.exe` installer)**: just run `Kompri_1.3.0_x64-setup.exe`. It offers to close MediaForge if it is running, then silently uninstalls it first (program files, Start Menu and Desktop shortcuts, old `MediaForge` right-click menu) without touching your settings or history. If the right-click menu was enabled, it comes back as **Kompri** the first time Kompri starts. A MediaForge shortcut you pinned to the taskbar must be pinned again.
+- **Windows (`.msi`)**: `Kompri_1.3.0_x64_en-US.msi` replaces an existing MediaForge `.msi` install (MediaForge is removed, Kompri goes to `Program Files\Kompri`). Do not mix the two formats: if you installed MediaForge with the `.exe`, use the Kompri `.exe` (and vice versa), otherwise uninstall MediaForge from *Settings → Apps* first.
 - **macOS**: the new `Kompri.app` does **not** replace `MediaForge.app` (different app name). After installing Kompri, drag `/Applications/MediaForge.app` to the Trash. Your settings are shared and stay in place.
 - **Linux**: the `.deb` / `.rpm` package name changed, so the MediaForge package is not removed automatically. Remove it with your package manager (for example `dpkg -l | grep -i forge` to find its name, then `sudo apt remove <name>`). AppImage users can simply delete the old `MediaForge_*.AppImage`.
 
@@ -70,8 +70,10 @@ MediaForge was renamed **Kompri** in v1.2.2. Your settings and conversion histor
 - Formats: **MP4, MKV, AVI, MOV, WEBM**
 - Standard options: resolution, video codec, bitrate
 - **1-Click "Target Size" Mode**:
-  - Built-in presets for **Discord (10 MB)**, **WhatsApp (16 MB)**, **Gmail (25 MB)**, plus **Custom MB** (default preset sizes are customizable in Settings)
+  - Built-in presets for **Discord (20 MB)**, **WhatsApp (16 MB)**, **Gmail (25 MB)**, plus **Custom MB** (default preset sizes are customizable in Settings)
   - **2-Pass H.264 / H.265 encoding** with a **95% container safety budget** (`1 MB = 1,000,000 B`) so output files strictly stay under platform upload limits
+  - **H.264 is the default codec.** H.265 gives better quality at the same size, but some recipients won't be able to play it. Choosing H.265 shows a short, non-blocking warning.
+  - **"Max quality (slower)"** (off by default): a switch in the Video converter, with a default in Settings. It uses the x264/x265 `slow` preset instead of `medium` and a light `hqdn3d` denoise before resizing. The target bitrate, the size check and the -10% retry are unchanged. It takes longer to encode (about 1.4× to 4× in our measurements). From the CLI, add `--max-quality` (see below). Without the flag, the Settings default applies.
   - **Automatic resolution & FPS downscaling** (orientation-aware for both landscape and 9:16 portrait videos) with live pre-conversion quality/resolution estimate
   - Automatic **-10% bitrate retry** if an encode ever exceeds the target size, and instant **copy/remux** when the source file is already below the target
 - Single file or batch conversion with real-time progress (`Pass 1/2` & `Pass 2/2`) and cancel support
@@ -85,7 +87,7 @@ MediaForge was renamed **Kompri** in v1.2.2. Your settings and conversion histor
 ### 🖱️ Windows Explorer Right-Click Context Menu & CLI
 - **Native cascading context menu** on Windows (`.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.tiff`, `.mp3`, `.wav`, `.flac`, `.ogg`, `.aac`, `.m4a`) registered under `HKCU\Software\Classes\SystemFileAssociations` (**no administrator rights required**)
 - One-click actions directly from Windows Explorer:
-  - *Compress for Discord (10 MB)* / *WhatsApp (16 MB)* / *Gmail (25 MB)*
+  - *Compress for Discord (20 MB)* / *WhatsApp (16 MB)*
   - *Convert to MP4 / MP3 / JPG / PNG / WEBP*
   - *Open in Kompri…*
 - **Compact 420×220 mini-window** for context-menu conversions with auto-close on completion, single-instance multi-file queue forwarding, and clean NSIS uninstall hook
@@ -97,6 +99,9 @@ Kompri can also be automated from a terminal or script:
 ```bash
 # Compress video(s) to a platform preset (discord | whatsapp | gmail)
 Kompri.exe --action compress --preset discord -- "C:\Videos\clip.mp4"
+
+# Compress with Max quality (slow preset + light denoise); without the flag, the Settings default applies
+Kompri.exe --action compress --preset discord --max-quality -- "C:\Videos\clip.mp4"
 
 # Convert media file(s) directly to a target format (mp4 | mp3 | jpg | png | webp)
 Kompri.exe --action convert --to mp4 -- "C:\Videos\clip.mov"
@@ -129,7 +134,7 @@ Kompri.exe --action compress --preset whatsapp --wait -- "C:\Videos\clip.mp4"
 | Video & audio conversion | FFmpeg (bundled sidecar) |
 | Image conversion | Rust `image` crate v0.25 |
 | Settings, history & single-instance | `tauri-plugin-store`, `tauri-plugin-single-instance`, `winreg` (Windows) |
-| Tests | Vitest (55 tests) + Rust `#[cfg(test)]` (65 tests) |
+| Tests | Vitest (60 tests) + Rust `#[cfg(test)]` (73 tests) |
 
 ---
 
@@ -171,9 +176,9 @@ Generates native installers in `src-tauri/target/release/bundle/`:
 
 | Platform | Output |
 |---|---|
-| Windows | `Kompri_1.2.2_x64-setup.exe` (NSIS) + `Kompri_1.2.2_x64_en-US.msi` |
-| macOS | `Kompri_1.2.2_aarch64.dmg` |
-| Linux | `Kompri_1.2.2_amd64.AppImage` + `Kompri_1.2.2_amd64.deb` + `Kompri-1.2.2-1.x86_64.rpm` |
+| Windows | `Kompri_1.3.0_x64-setup.exe` (NSIS) + `Kompri_1.3.0_x64_en-US.msi` |
+| macOS | `Kompri_1.3.0_aarch64.dmg` |
+| Linux | `Kompri_1.3.0_amd64.AppImage` + `Kompri_1.3.0_amd64.deb` + `Kompri-1.3.0-1.x86_64.rpm` |
 
 > **Note:** Each platform can only build its own native installer. Use a CI/CD pipeline (e.g. GitHub Actions) to build all three simultaneously.
 
