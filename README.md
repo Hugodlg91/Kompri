@@ -4,7 +4,8 @@
 
 **Local, fast, and private media converter**
 
-[![Version](https://img.shields.io/badge/version-1.2.0-6366f1?style=flat-square)](https://github.com/Hugodlg91/MediaForge/releases)
+[![Version](https://img.shields.io/badge/version-1.2.1-6366f1?style=flat-square)](https://github.com/Hugodlg91/MediaForge/releases)
+[![CI](https://github.com/Hugodlg91/MediaForge/actions/workflows/ci.yml/badge.svg)](https://github.com/Hugodlg91/MediaForge/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-lightgrey?style=flat-square)](https://github.com/Hugodlg91/MediaForge/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-24c8db?style=flat-square)](https://tauri.app)
 
@@ -17,6 +18,13 @@
 MediaForge is a desktop application that converts images, videos, and audio files **entirely on your machine** — no upload, no internet connection required, no account to create, no ads.
 
 It is designed for anyone who needs reliable, fast media conversion without sacrificing privacy or having to deal with bloated web tools or watermarks.
+
+---
+
+## Demo & Screenshots
+
+> **Media assets pending capture**: The 6–8s workflow demo (`docs/assets/demo.gif`) and feature screenshots (simple conversion, 1-Click Target Size mode, Windows Explorer cascading context menu, and Dark *Liquid Obsidian* vs Light *Iridescent Pearl* themes) will be published in `docs/assets/`.
+> See [`docs/SCREENSHOTS_CHECKLIST.md`](docs/SCREENSHOTS_CHECKLIST.md) for the complete capture checklist and guidelines.
 
 ---
 
@@ -129,9 +137,9 @@ Generates native installers in `src-tauri/target/release/bundle/`:
 
 | Platform | Output |
 |---|---|
-| Windows | `MediaForge_1.2.0_x64-setup.exe` (NSIS) + `MediaForge_1.2.0_x64_en-US.msi` |
-| macOS | `MediaForge_1.2.0_x64.dmg` |
-| Linux | `MediaForge_1.2.0_amd64.AppImage` + `MediaForge_1.2.0_amd64.deb` |
+| Windows | `MediaForge_1.2.1_x64-setup.exe` (NSIS) + `MediaForge_1.2.1_x64_en-US.msi` |
+| macOS | `MediaForge_1.2.1_aarch64.dmg` |
+| Linux | `MediaForge_1.2.1_amd64.AppImage` + `MediaForge_1.2.1_amd64.deb` |
 
 > **Note:** Each platform can only build its own native installer. Use a CI/CD pipeline (e.g. GitHub Actions) to build all three simultaneously.
 
@@ -147,3 +155,11 @@ See [`arbo.md`](arbo.md) for the full annotated file tree.
 
 MIT + Commons Clause — © 2026 VladimirWRLD
 Free to use and contribute — commercial resale prohibited.
+
+---
+
+## Third-Party Licenses
+
+MediaForge bundles standalone **FFmpeg** and **FFprobe** binaries executed as external sidecar processes (`tauri-plugin-shell`) for video and audio processing. Because these prebuilt FFmpeg/FFprobe binaries are compiled with `--enable-gpl --enable-version3` (including `libx264` and `libx265`), they are governed by the **GNU General Public License v3.0 (GPLv3)**.
+
+See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for platform-specific versions, build providers, and corresponding source code URLs, and [`licenses/FFmpeg-GPLv3.txt`](licenses/FFmpeg-GPLv3.txt) for the full GPLv3 license text.
