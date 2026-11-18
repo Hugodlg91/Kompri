@@ -116,7 +116,9 @@
     "contextMenuHint": "Fügt das MediaForge-Untermenü für Video-, Audio- und Bilddateien hinzu (HKCU, kein Admin nötig).",
     "about": "Über",
     "version": "Version",
-    "localOnly": "100% lokal — keine Daten gesendet"
+    "localOnly": "100% lokal — keine Daten gesendet",
+    "thirdPartyLicenses": "Drittanbieter-Lizenzen",
+    "thirdPartyLicensesClose": "Schließen"
   },
   "dropzone": {
     "label": "Dateien hier ablegen oder klicken zum Durchsuchen",

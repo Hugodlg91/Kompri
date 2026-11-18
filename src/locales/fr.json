@@ -116,7 +116,9 @@
     "contextMenuHint": "Ajoute le sous-menu MediaForge sur les fichiers vidéo, audio et image (HKCU, sans droits admin).",
     "about": "À propos",
     "version": "Version",
-    "localOnly": "100% local — aucune donnée envoyée"
+    "localOnly": "100% local — aucune donnée envoyée",
+    "thirdPartyLicenses": "Licences tierces",
+    "thirdPartyLicensesClose": "Fermer"
   },
   "dropzone": {
     "label": "Déposez des fichiers ici ou cliquez pour parcourir",
