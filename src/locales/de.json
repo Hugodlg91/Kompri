@@ -51,7 +51,7 @@
     "tooSmall": "Die Zielgröße ist für die Dauer dieses Videos zu klein.",
     "h265Warning": "Bessere Qualität bei gleicher Größe, aber manche Empfänger können das Video nicht abspielen.",
     "maxQuality": "Maximale Qualität (langsamer)",
-    "maxQualityHint": "Slow-Preset + leichte Rauschminderung und adaptive Schärfung"
+    "maxQualityHint": "Slow-Preset + leichte Rauschminderung vor der Skalierung"
   },
   "status": {
     "ready": "Bereit",

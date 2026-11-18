@@ -12,10 +12,9 @@ pub const BYTES_PER_MB: f64 = 1_000_000.0;
 pub const CONTAINER_SAFETY_FACTOR: f64 = 0.95;
 
 /// Gentle spatial-temporal 3D denoise filter applied before scaling in Max Quality mode.
+/// Max Quality = `-preset slow` + this pre-scale denoise only. Post-scale sharpening
+/// (`unsharp`) was evaluated and rejected (see scripts/quality-bench/README.md).
 pub const MAX_QUALITY_DENOISE_FILTER: &str = "hqdn3d=0.6:0.4:0.9:0.6";
-
-/// Subtle luma-only unsharp mask applied after downscaling in Max Quality mode.
-pub const MAX_QUALITY_UNSHARP_FILTER: &str = "unsharp=3:3:0.25:3:3:0.0";
 
 /// Minimum allowed video bitrate (kbps) before rejecting the target size as unachievable.
 const MIN_VIDEO_KBPS: i64 = 30;
@@ -250,7 +249,7 @@ pub fn build_two_pass_ffmpeg_args(
 
 /// Build FFmpeg CLI arguments for Pass 1 (`pass == 1`) or Pass 2 (`pass == 2`)
 /// of a bitrate-budgeted 2-pass encode, optionally enabling Max Quality mode
-/// (`-preset slow`, pre-scale 3D denoise, and post-scale luma unsharp when downscaled).
+/// (`-preset slow` and a light 3D denoise applied before scaling).
 #[allow(clippy::too_many_arguments)]
 pub fn build_two_pass_ffmpeg_args_with_options(
     input_path: &str,
@@ -292,9 +291,6 @@ pub fn build_two_pass_ffmpeg_args_with_options(
             "scale={}:{}",
             plan.target_width, plan.target_height
         ));
-        if max_quality {
-            filters.push(MAX_QUALITY_UNSHARP_FILTER.to_string());
-        }
     }
     if plan.fps_reduced {
         filters.push(format!("fps={}", plan.target_fps));
@@ -873,8 +869,11 @@ mod tests {
         assert!(has_arg_pair(
             &mq_scaled_fps_h264,
             "-vf",
-            "hqdn3d=0.6:0.4:0.9:0.6,scale=1280:720,unsharp=3:3:0.25:3:3:0.0,fps=30"
+            "hqdn3d=0.6:0.4:0.9:0.6,scale=1280:720,fps=30"
         ));
+        for a in &mq_scaled_fps_h264 {
+            assert!(!a.contains("unsharp"));
+        }
 
         // 3. max_quality = true with downscaled=true, fps_reduced=false (H.265)
         let plan_downscaled_only = TargetSizeEstimate {
@@ -897,10 +896,10 @@ mod tests {
         assert!(has_arg_pair(
             &mq_scaled_h265,
             "-vf",
-            "hqdn3d=0.6:0.4:0.9:0.6,scale=1280:720,unsharp=3:3:0.25:3:3:0.0"
+            "hqdn3d=0.6:0.4:0.9:0.6,scale=1280:720"
         ));
 
-        // 4. max_quality = true with downscaled=false, fps_reduced=true (no unsharp when not downscaled)
+        // 4. max_quality = true with downscaled=false, fps_reduced=true
         let plan_fps_only = TargetSizeEstimate {
             downscaled: false,
             fps_reduced: true,
@@ -923,7 +922,7 @@ mod tests {
             "hqdn3d=0.6:0.4:0.9:0.6,fps=30"
         ));
 
-        // 5. max_quality = true with downscaled=false, fps_reduced=false (hqdn3d still included, no unsharp)
+        // 5. max_quality = true with downscaled=false, fps_reduced=false (hqdn3d still included)
         let plan_no_scale_no_fps = TargetSizeEstimate {
             downscaled: false,
             fps_reduced: false,

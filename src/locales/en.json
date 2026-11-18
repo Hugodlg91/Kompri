@@ -51,7 +51,7 @@
     "tooSmall": "Target size is too small for this video's duration.",
     "h265Warning": "Better quality at the same size, but some recipients won't be able to play the video.",
     "maxQuality": "Max quality (slower)",
-    "maxQualityHint": "Slow preset + light pre-scale denoising and adaptive sharpening"
+    "maxQualityHint": "Slow preset + light denoising before resizing"
   },
   "status": {
     "ready": "Ready",
