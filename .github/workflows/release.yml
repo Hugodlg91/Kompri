@@ -180,13 +180,11 @@ jobs:
           done
 
           # "Max quality" target-size filters. These strings MUST match
-          # MAX_QUALITY_DENOISE_FILTER / MAX_QUALITY_UNSHARP_FILTER in
-          # src-tauri/src/target_size.rs.
+          # MAX_QUALITY_DENOISE_FILTER in src-tauri/src/target_size.rs.
           MQ_DENOISE="hqdn3d=0.6:0.4:0.9:0.6"
-          MQ_UNSHARP="unsharp=3:3:0.25:3:3:0.0"
 
           FILTERS_OUT=$("$FFMPEG_BIN" -hide_banner -filters)
-          for flt in hqdn3d unsharp scale fps; do
+          for flt in hqdn3d scale fps; do
             if ! echo "$FILTERS_OUT" | grep -E "^[[:space:]]*[A-Z.]{2,3}[[:space:]]+${flt}[[:space:]]" > /dev/null; then
               echo "::error::Bundled FFmpeg is missing required filter: ${flt}"
               exit 1
@@ -203,9 +201,9 @@ jobs:
           "$FFPROBE_BIN" -v error -show_format -show_streams "$SMOKE_MP4"
           rm -f "$SMOKE_MP4"
 
-          # Max quality chain (same order as the app): denoise -> scale -> unsharp -> fps,
+          # Max quality chain (same order as the app): denoise -> scale -> fps,
           # encoded with -preset slow. 640x360@60 -> 320x180@30.
-          MQ_CHAIN="${MQ_DENOISE},scale=320:180,${MQ_UNSHARP},fps=30"
+          MQ_CHAIN="${MQ_DENOISE},scale=320:180,fps=30"
           for pair in "libx264:$SMOKE_MQ_X264" "libx265:$SMOKE_MQ_X265"; do
             codec="${pair%%:*}"
             out="${pair#*:}"
