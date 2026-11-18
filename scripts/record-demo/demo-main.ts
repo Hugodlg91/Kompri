@@ -1,22 +1,24 @@
 // Demo harness: runs the real Kompri UI with a simulated Tauri backend.
 // Numbers come from a real run of Kompri's own target-size planner and
-// 2-pass FFmpeg arguments on a 60 s 1080p60 clip (122,773,228 B -> 9,557,754 B).
+// 2-pass FFmpeg arguments (src-tauri/examples/target_size_bench.rs) on the
+// reproducible 60 s 1080p60 bench clip (scripts/quality-bench/make-clips.ps1):
+// 160,997,966 B -> 19,202,630 B with the Discord 20 MB preset.
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
 
 const DIR = "C:\\Users\\you\\Videos\\";
 const SRC = DIR + "ranked-clutch.mp4";
 const OUT = DIR + "ranked-clutch_discord.mp4";
-const SRC_SIZE = 122_773_228;
-const OUT_SIZE = 9_557_754;
+const SRC_SIZE = 160_997_966;
+const OUT_SIZE = 19_202_630;
 
 function fmt(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 const plans: Record<number, object> = {
-  10: { already_under_target: false, source_size_bytes: SRC_SIZE, target_bytes: 10000000, budget_bytes: 9500000, video_kbps: 1170, audio_kbps: 96, target_width: 1920, target_height: 1080, target_fps: 30, downscaled: false, fps_reduced: true },
   16: { already_under_target: false, source_size_bytes: SRC_SIZE, target_bytes: 16000000, budget_bytes: 15200000, video_kbps: 1930, audio_kbps: 96, target_width: 1920, target_height: 1080, target_fps: 60, downscaled: false, fps_reduced: false },
+  20: { already_under_target: false, source_size_bytes: SRC_SIZE, target_bytes: 20000000, budget_bytes: 19000000, video_kbps: 2437, audio_kbps: 96, target_width: 1920, target_height: 1080, target_fps: 60, downscaled: false, fps_reduced: false },
   25: { already_under_target: false, source_size_bytes: SRC_SIZE, target_bytes: 25000000, budget_bytes: 23750000, video_kbps: 3070, audio_kbps: 96, target_width: 1920, target_height: 1080, target_fps: 60, downscaled: false, fps_reduced: false },
 };
 
@@ -32,7 +34,7 @@ let cancelled = false;
 let lastOut = OUT;
 
 async function simulatePasses() {
-  // Real run: pass 1 ~30 s, pass 2 ~42 s. Shown accelerated.
+  // Real run: the whole 2-pass encode took ~22 s on the dev machine; the demo shows it accelerated.
   const durations = [2600, 3400];
   for (let pass = 1; pass <= 2; pass++) {
     const steps = 26;
@@ -57,7 +59,7 @@ mockIPC(
   async (cmd, args: any) => {
     switch (cmd) {
       case "get_settings":
-        return { language: "en", theme: "dark", output_dir: null, default_video_format: "mp4", default_audio_format: "mp3", default_image_format: "webp", preset_discord_mb: 10, preset_whatsapp_mb: 16, preset_gmail_mb: 25, context_menu_enabled: true };
+        return { language: "en", theme: "dark", output_dir: null, default_video_format: "mp4", default_audio_format: "mp3", default_image_format: "webp", preset_discord_mb: 20, preset_whatsapp_mb: 16, preset_gmail_mb: 25, context_menu_enabled: true, target_size_max_quality: false };
       case "save_settings":
       case "add_history_item":
         if (cmd === "add_history_item" && args?.item) {
@@ -83,9 +85,9 @@ mockIPC(
       case "plugin:dialog|open":
         return SRC;
       case "get_media_info":
-        return { duration: 60.0, width: 1920, height: 1080, video_codec: "h264", audio_codec: "aac", file_size: SRC_SIZE, bitrate: "16369 kb/s", fps: 60, audio_bitrate_kbps: 160, has_audio: true };
+        return { duration: 60.0, width: 1920, height: 1080, video_codec: "h264", audio_codec: "aac", file_size: SRC_SIZE, bitrate: "21466 kbps", fps: 60, audio_bitrate_kbps: 192, has_audio: true };
       case "estimate_target_size":
-        return plans[Math.round(args.target_mb)] ?? plans[10];
+        return plans[Math.round(args.target_mb)] ?? plans[20];
       case "compress_video_to_size":
         cancelled = false;
         lastOut = args?.output_path ?? OUT;
