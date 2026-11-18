@@ -60,12 +60,20 @@ fn is_valid_target_format(ext: &str) -> bool {
     )
 }
 
+fn parse_bool_value(s: &str) -> Option<bool> {
+    match s.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" => Some(true),
+        "false" | "0" => Some(false),
+        _ => None,
+    }
+}
+
 /// Parses CLI arguments passed to the application (skipping `args[0]`, the executable path).
 ///
 /// Returns `None` if `--action` is missing/invalid, required action parameters are missing,
 /// or no input file paths were provided.
 pub fn parse_cli_args(args: &[String]) -> Option<CliRequest> {
-    let mut iter = args.iter().skip(1);
+    let mut iter = args.iter().skip(1).peekable();
 
     let mut action_kind: Option<String> = None;
     let mut preset: Option<String> = None;
@@ -104,12 +112,13 @@ pub fn parse_cli_args(args: &[String]) -> Option<CliRequest> {
             wait = true;
         } else if arg == "--max-quality" {
             max_quality = Some(true);
-        } else if let Some(val) = arg.strip_prefix("--max-quality=") {
-            match val.trim().to_ascii_lowercase().as_str() {
-                "true" | "1" => max_quality = Some(true),
-                "false" | "0" => max_quality = Some(false),
-                _ => {}
+            // Optional space-separated value: only consume true/false/1/0.
+            if let Some(v) = iter.peek().and_then(|next| parse_bool_value(next)) {
+                max_quality = Some(v);
+                iter.next();
             }
+        } else if let Some(val) = arg.strip_prefix("--max-quality=") {
+            max_quality = Some(parse_bool_value(val)?);
         } else if arg.starts_with('-') {
             // Ignore unknown flags injected by OS/WebView/single-instance launchers.
             continue;
@@ -382,6 +391,34 @@ mod tests {
         assert_eq!(req.max_quality, None);
         let json = serde_json::to_string(&req).unwrap();
         assert!(!json.contains("max_quality"), "{json}");
+    }
+
+    #[test]
+    fn test_parse_max_quality_space_separated_value() {
+        let base = ["Kompri.exe", "--action=compress", "--preset=discord"];
+        let run = |extra: &[&str]| {
+            let mut v: Vec<&str> = base.to_vec();
+            v.extend_from_slice(extra);
+            parse_cli_args(&s(&v))
+        };
+
+        let r = run(&["--max-quality", "false", "clip.mp4"]).unwrap();
+        assert_eq!(r.max_quality, Some(false));
+        assert_eq!(r.files, vec!["clip.mp4"]);
+
+        let r = run(&["--max-quality", "TRUE", "clip.mp4"]).unwrap();
+        assert_eq!(r.max_quality, Some(true));
+        assert_eq!(r.files, vec!["clip.mp4"]);
+
+        let r = run(&["--max-quality", "clip.mp4"]).unwrap();
+        assert_eq!(r.max_quality, Some(true));
+        assert_eq!(r.files, vec!["clip.mp4"]);
+
+        let r = run(&["--max-quality", "--", "false"]).unwrap();
+        assert_eq!(r.max_quality, Some(true));
+        assert_eq!(r.files, vec!["false"]);
+
+        assert!(run(&["--max-quality=yes", "clip.mp4"]).is_none());
     }
 
     #[test]

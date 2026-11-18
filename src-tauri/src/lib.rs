@@ -2138,6 +2138,8 @@ pub fn run() {
         .setup(move |app| {
             let (language, context_menu_enabled) = match app.store("settings.json") {
                 Ok(store) => {
+                    // Must stay before `sync_context_menu_on_startup` and before the startup
+                    // CLI request is spawned: both read the (possibly migrated) presets.
                     if apply_settings_migrations(&mut StoreKv(&store)) {
                         let _ = store.save();
                     }
