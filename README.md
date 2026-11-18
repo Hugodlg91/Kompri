@@ -50,8 +50,8 @@ Download the latest installer for your platform from the [**Releases**](https://
 
 MediaForge was renamed **Kompri** in v1.2.2. Your settings and conversion history are kept on every platform (the app identifier `com.mediaforge.app` did not change).
 
-- **Windows (`.exe` installer)**: just run `Kompri_1.2.2_x64-setup.exe`. It silently uninstalls MediaForge first (program files, Start Menu and Desktop shortcuts, old `MediaForge` right-click menu) without touching your settings or history. If the right-click menu was enabled, it comes back as **Kompri** the first time Kompri starts. A MediaForge shortcut you pinned to the taskbar must be pinned again.
-- **Windows (`.msi`)**: `Kompri_1.2.2_x64_en-US.msi` upgrades an existing MediaForge `.msi` install in place. Do not mix the two formats: if you installed MediaForge with the `.exe`, use the Kompri `.exe` (and vice versa), otherwise uninstall MediaForge from *Settings → Apps* first.
+- **Windows (`.exe` installer)**: just run `Kompri_1.2.2_x64-setup.exe`. It offers to close MediaForge if it is running, then silently uninstalls it first (program files, Start Menu and Desktop shortcuts, old `MediaForge` right-click menu) without touching your settings or history. If the right-click menu was enabled, it comes back as **Kompri** the first time Kompri starts. A MediaForge shortcut you pinned to the taskbar must be pinned again.
+- **Windows (`.msi`)**: `Kompri_1.2.2_x64_en-US.msi` replaces an existing MediaForge `.msi` install (MediaForge is removed, Kompri goes to `Program Files\Kompri`). Do not mix the two formats: if you installed MediaForge with the `.exe`, use the Kompri `.exe` (and vice versa), otherwise uninstall MediaForge from *Settings → Apps* first.
 - **macOS**: the new `Kompri.app` does **not** replace `MediaForge.app` (different app name). After installing Kompri, drag `/Applications/MediaForge.app` to the Trash. Your settings are shared and stay in place.
 - **Linux**: the `.deb` / `.rpm` package name changed, so the MediaForge package is not removed automatically. Remove it with your package manager (for example `dpkg -l | grep -i forge` to find its name, then `sudo apt remove <name>`). AppImage users can simply delete the old `MediaForge_*.AppImage`.
 
@@ -173,7 +173,7 @@ Generates native installers in `src-tauri/target/release/bundle/`:
 |---|---|
 | Windows | `Kompri_1.2.2_x64-setup.exe` (NSIS) + `Kompri_1.2.2_x64_en-US.msi` |
 | macOS | `Kompri_1.2.2_aarch64.dmg` |
-| Linux | `Kompri_1.2.2_amd64.AppImage` + `Kompri_1.2.2_amd64.deb` |
+| Linux | `Kompri_1.2.2_amd64.AppImage` + `Kompri_1.2.2_amd64.deb` + `Kompri-1.2.2-1.x86_64.rpm` |
 
 > **Note:** Each platform can only build its own native installer. Use a CI/CD pipeline (e.g. GitHub Actions) to build all three simultaneously.
 

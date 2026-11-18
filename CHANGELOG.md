@@ -7,9 +7,9 @@
 - The bundle identifier stays `com.mediaforge.app` on purpose, so settings and conversion history are found again after the upgrade.
 
 ### Migration notes (upgrading from MediaForge 1.2.1 or earlier)
-- **Windows `.exe` (NSIS)**: Tauri identifies an install by its product name, so the Kompri installer would otherwise sit next to MediaForge. It now silently uninstalls MediaForge first (program folder, Start Menu and Desktop shortcuts, uninstall entry, old `MediaForge` right-click menu). Settings and history in `%APPDATA%\com.mediaforge.app` are not touched. Kompri installs to `%LOCALAPPDATA%\Kompri`. A taskbar pin of MediaForge must be re-pinned.
+- **Windows `.exe` (NSIS)**: Tauri identifies an install by its product name, so the Kompri installer would otherwise sit next to MediaForge. It now offers to close a running MediaForge, then silently uninstalls it first (program folder, Start Menu and Desktop shortcuts, uninstall entry, old `MediaForge` right-click menu). Settings and history in `%APPDATA%\com.mediaforge.app` are not touched. Kompri installs to `%LOCALAPPDATA%\Kompri`. A taskbar pin of MediaForge must be re-pinned. If the old uninstaller fails, its entry is kept so MediaForge can still be removed from *Settings → Apps*.
 - **Windows right-click menu**: on startup, if the integration is enabled (or the old menu is still registered), Kompri removes the `HKCU\...\shell\MediaForge` keys and registers `shell\Kompri` with the path of `Kompri.exe` and the labels in the current language.
-- **Windows `.msi`**: the WiX upgrade code is pinned to MediaForge's, so the Kompri `.msi` upgrades an existing MediaForge `.msi` in place. Mixing formats (`.exe` ↔ `.msi`) is not migrated automatically.
+- **Windows `.msi`**: the WiX upgrade code is pinned to MediaForge's, so the Kompri `.msi` replaces an existing MediaForge `.msi` (major upgrade: MediaForge is removed, Kompri installs to `Program Files\Kompri`). Mixing formats (`.exe` ↔ `.msi`) is not migrated automatically.
 - **macOS**: `Kompri.app` does not replace `MediaForge.app`. Delete `/Applications/MediaForge.app` after installing Kompri; settings are shared.
 - **Linux**: the `.deb` / `.rpm` package name changed; remove the old MediaForge package with your package manager.
 - There is no auto-updater in MediaForge 1.2.1, so the upgrade is a manual download from the Releases page.

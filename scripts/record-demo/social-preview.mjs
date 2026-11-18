@@ -22,6 +22,7 @@ await server.listen();
 const url = `${server.resolvedUrls.local[0]}scripts/record-demo/index.html`;
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ["--no-proxy-server"] });
 
+async function run() {
 // 1. Real UI screenshot from the harness.
 const app = await browser.newPage({ viewport: { width: 1000, height: 760 }, deviceScaleFactor: 2 });
 const errors = [];
@@ -36,7 +37,7 @@ await app.getByRole("button", { name: /discord/i }).first().click();
 await sleep(1500);
 const shot = (await app.screenshot({ type: "png" })).toString("base64");
 await app.close();
-if (errors.length) { console.error("Page errors:\n" + errors.join("\n")); process.exit(1); }
+if (errors.length) throw new Error("Page errors:\n" + errors.join("\n"));
 
 // 2. Compose the card.
 const icon = readFileSync(join(root, "resource", "app-icon.png")).toString("base64");
@@ -75,6 +76,12 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
 const card = await browser.newPage({ viewport: { width: 1280, height: 640 }, deviceScaleFactor: 1 });
 await card.setContent(html, { waitUntil: "load" });
 await card.screenshot({ path: out, type: "png" });
-await browser.close();
-await server.close();
-console.log("Social preview written to docs/assets/social-preview.png");
+}
+
+try {
+  await run();
+  console.log("Social preview written to docs/assets/social-preview.png");
+} finally {
+  await browser.close();
+  await server.close();
+}
