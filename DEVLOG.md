@@ -378,7 +378,7 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
 
 ---
 
-### 🔄 Étape 19 — v1.3.0 : Discord 20 Mo, Qualité max & avertissement H.265 (EN COURS — en attente de validation de Hugo)
+### ✅ Étape 19 — v1.3.0 : Discord 20 Mo, Qualité max & avertissement H.265 (TERMINÉE — validée par Hugo, mergée dans `main` local en fast-forward, non poussée)
 - [x] **Branche** : `feat/v1.3.0-quality` recréée depuis `main` après le lot 1 (renommage Kompri, v1.2.2). Le WIP mis de côté sur l'ancienne branche a été réutilisé et adapté ; l'ancienne branche est conservée localement sous `wip/v1.3.0-pre-rename`.
 - [x] **Chantier 1 — Discord 20 Mo** :
   - Migration côté Rust, au démarrage, persistée via le marqueur `discord_20mb_migrated` : `preset_discord_mb` passe de 10 à 20 **uniquement si la valeur vaut exactement 10**. Une valeur personnalisée (8, 12, 15…) est conservée.
