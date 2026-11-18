@@ -282,7 +282,12 @@ pub fn build_two_pass_ffmpeg_args_with_options(
         "yuv420p".into(),
     ];
 
+    // Order: fps -> denoise -> scale. Dropping frames first means hqdn3d only runs on the
+    // frames that are kept; the denoise still runs before scaling.
     let mut filters: Vec<String> = Vec::new();
+    if plan.fps_reduced {
+        filters.push(format!("fps={}", plan.target_fps));
+    }
     if max_quality {
         filters.push(MAX_QUALITY_DENOISE_FILTER.to_string());
     }
@@ -291,9 +296,6 @@ pub fn build_two_pass_ffmpeg_args_with_options(
             "scale={}:{}",
             plan.target_width, plan.target_height
         ));
-    }
-    if plan.fps_reduced {
-        filters.push(format!("fps={}", plan.target_fps));
     }
     if !filters.is_empty() {
         args.extend(["-vf".into(), filters.join(",")]);
@@ -631,7 +633,7 @@ mod tests {
         );
         assert_eq!(h264_p1[0], "-y");
         assert!(has_arg_pair(&h264_p1, "-i", r"C:\Videos\clip é.mp4"));
-        assert!(has_arg_pair(&h264_p1, "-vf", "scale=1280:720,fps=30"));
+        assert!(has_arg_pair(&h264_p1, "-vf", "fps=30,scale=1280:720"));
         assert!(has_arg_pair(&h264_p1, "-c:v", "libx264"));
         assert!(has_arg_pair(&h264_p1, "-b:v", "1000k"));
         assert!(has_arg_pair(&h264_p1, "-maxrate", "1050k"));
@@ -851,7 +853,7 @@ mod tests {
             false,
         );
         assert!(has_arg_pair(&std_args, "-preset", "medium"));
-        assert!(has_arg_pair(&std_args, "-vf", "scale=1280:720,fps=30"));
+        assert!(has_arg_pair(&std_args, "-vf", "fps=30,scale=1280:720"));
 
         // 2. max_quality = true with downscaled=true, fps_reduced=true (H.264)
         let mq_scaled_fps_h264 = build_two_pass_ffmpeg_args_with_options(
@@ -869,7 +871,7 @@ mod tests {
         assert!(has_arg_pair(
             &mq_scaled_fps_h264,
             "-vf",
-            "hqdn3d=0.6:0.4:0.9:0.6,scale=1280:720,fps=30"
+            "fps=30,hqdn3d=0.6:0.4:0.9:0.6,scale=1280:720"
         ));
         for a in &mq_scaled_fps_h264 {
             assert!(!a.contains("unsharp"));
@@ -919,7 +921,7 @@ mod tests {
         assert!(has_arg_pair(
             &mq_fps_only,
             "-vf",
-            "hqdn3d=0.6:0.4:0.9:0.6,fps=30"
+            "fps=30,hqdn3d=0.6:0.4:0.9:0.6"
         ));
 
         // 5. max_quality = true with downscaled=false, fps_reduced=false (hqdn3d still included)

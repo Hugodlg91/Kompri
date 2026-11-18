@@ -8,7 +8,7 @@
   - Explorer right-click labels now read "Discord (20 MB)" in the 5 languages and are rewritten at startup.
 
 ### Added
-- **"Max quality (slower)" for target-size compression.** A switch in the Video converter, a default in Settings, and a `--max-quality[=true|false]` CLI flag. Without the flag (for example from the right-click menu), the Settings default applies. Off by default. It uses the x264/x265 `slow` preset instead of `medium` and a light `hqdn3d` denoise before resizing. The target bitrate budget, the size check and the -10% retry are unchanged. Post-resize sharpening was evaluated and NOT shipped, because it lowered SSIM on downscaled clips.
+- **"Max quality (slower)" for target-size compression.** A switch in the Video converter, a default in Settings, and a `--max-quality[=true|false]` CLI flag. Without the flag (for example from the right-click menu), the Settings default applies. Off by default. It uses the x264/x265 `slow` preset instead of `medium`, plus a light `hqdn3d` denoise before resizing. The measured gain comes mainly from the `slow` preset; the light denoise was neutral on our synthetic clips (no measurable gain or loss within noise) and is kept as a light pre-resize denoise. Filter order is `fps` → `hqdn3d` → `scale`, so the denoise only runs on the frames that are kept. The target bitrate budget, the size check and the -10% retry are unchanged. Post-resize sharpening was evaluated and NOT shipped, because it lowered SSIM on downscaled clips.
 - **H.265 warning.** Selecting H.265 shows a short, non-blocking warning: "Better quality at the same size, but some recipients won't be able to play the video." HEVC playback (for example on Discord) depends on the viewer's hardware. H.264 stays the default.
 - **Release smoke test and quality bench.** The release smoke test checks the `hqdn3d`, `scale` and `fps` filters and a `slow`-preset encode on Windows, macOS and Linux. A reproducible quality bench lives in `scripts/quality-bench`.
 
@@ -23,8 +23,8 @@ Clips are 1080p60 unless noted. All outputs are below 20,000,000 bytes. VMAF, SS
 | 60 s 1080p60 | H.264 | Max quality | 19,133,430 | 76.64 | 0.98031 | 28.92 | 31.4 |
 | 60 s 1080p60 | H.265 | Standard | 18,378,895 | 92.50 | 0.98646 | 34.82 | 67.5 |
 | 60 s 1080p60 | H.265 | Max quality | 18,023,169 | 96.78 | 0.99050 | 38.50 | 185.2 |
-| 180 s 1080p60 (→720p30) | H.264 | Standard | 19,214,680 | 53.71 | 0.97836 | 23.27 | 24.9 |
-| 180 s 1080p60 (→720p30) | H.264 | Max quality | 19,120,557 | 55.31 | 0.97874 | 23.35 | 96.7 |
+| 180 s 1080p60 (→720p30) | H.264 | Standard | 19,201,073 | 53.71 | 0.97835 | 23.27 | 23.9 |
+| 180 s 1080p60 (→720p30) | H.264 | Max quality | 19,163,096 | 55.30 | 0.97876 | 23.34 | 48.6 |
 
 On the 10 s clip, VMAF is equal (99.89) and PSNR is higher with Max quality. SSIM is 0.00012 lower, which is the effect of the `slow` preset and about twice the run-to-run noise.
 

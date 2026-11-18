@@ -15,7 +15,7 @@
   - Migration faite **côté Rust, au démarrage**, avec un marqueur persisté `discord_20mb_migrated` (et non dans le frontend) : si `preset_discord_mb == 10` (ancienne valeur par défaut), elle devient `20` une seule fois ; une valeur personnalisée (ex. `8`, `12`, `15`) est conservée intacte.
   - Libellés du menu contextuel Windows Explorer (`context_menu.rs`) mis à jour dans les 5 langues (`20 Mo` / `20 MB`) ; `sync_context_menu_on_startup` réécrit les clés `HKCU` existantes avec le nouveau libellé.
   - WhatsApp (`16 Mo`) et Gmail (`25 Mo`) inchangés.
-  - *Critère de fini* : tests Rust `test_discord_migration_*` (migration `10 → 20`, préservation d'une valeur personnalisée) et `test_startup_sync_rewrites_old_discord_10mb_label` (réécriture `HKCU` `10 Mo → 20 Mo`) dans `lib.rs`, tous verts.
+  - *Critère de fini* : tests Rust `test_discord_migration_*` (migration `10 → 20`, préservation d'une valeur personnalisée) et `test_startup_sync_rewrites_old_discord_10mb_label` (réécriture `HKCU` `10 Mo → 20 Mo`) dans `lib.rs` (migration) et `context_menu.rs` (réécriture du libellé), tous verts.
 
 - [x] **Étape 3 — Chantier 2 & 3 (Backend Rust & CI) : Mode « Qualité max (plus lent) » dans `target_size.rs`, `cli.rs`, `lib.rs` et `release.yml`**
   - Argument `max_quality` dans la construction des arguments FFmpeg 2 passes (`target_size.rs`) :
