@@ -1514,6 +1514,88 @@ async fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), 
 
 // ─── Context Menu & Platform Commands ────────────────────────────────────────
 
+const FALLBACK_THIRD_PARTY_NOTICES: &str = "\
+# Third-Party Notices & Licenses — MediaForge
+
+MediaForge bundles external FFmpeg and FFprobe binaries as sidecar executables and uses open-source libraries.
+
+## FFmpeg & FFprobe (Bundled Sidecar Binaries)
+- **License**: GNU General Public License v3.0 (GPL-3.0) — bundled builds are compiled with `--enable-gpl` and include `libx264` and `libx265` (upgrading LGPL components to GPL v3).
+- **Official FFmpeg Source Code**: https://ffmpeg.org/download.html
+- **Full License Text**: https://www.gnu.org/licenses/gpl-3.0.html (also bundled in `licenses/FFmpeg-GPLv3.txt`)
+- **Platform Builds**:
+  - **Windows (`x86_64`)**: gyan.dev FFmpeg release essentials — https://www.gyan.dev/ffmpeg/builds/
+  - **macOS (`aarch64`)**: eugeneware/ffmpeg-static (`b6.1.1`) — https://github.com/eugeneware/ffmpeg-static/releases/tag/b6.1.1
+  - **Linux (`x86_64`)**: John Van Sickle static builds — https://johnvansickle.com/ffmpeg/
+
+## Included Video Codecs
+- **x264 (H.264 / AVC)**: GPL-2.0-or-later — https://www.videolan.org/developers/x264.html
+- **x265 (H.265 / HEVC)**: GPL-2.0-or-later — https://www.videolan.org/developers/x265.html
+
+## Application Frameworks & Libraries
+- **Tauri & Official Plugins**: Apache-2.0 OR MIT — https://github.com/tauri-apps/tauri
+- **Rust Crates** (`serde`, `serde_json`, `image`, `winreg`): MIT / Apache-2.0
+- **Frontend Packages** (`react`, `react-dom`, `i18next`, `react-i18next`): MIT
+";
+
+fn load_third_party_notices_from_candidates(candidates: &[std::path::PathBuf]) -> String {
+    for path in candidates {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            if !content.trim().is_empty() {
+                return content;
+            }
+        }
+    }
+
+    FALLBACK_THIRD_PARTY_NOTICES.to_string()
+}
+
+/// Return the contents of `THIRD_PARTY_NOTICES.md` from bundled resources or the workspace root,
+/// falling back to the embedded notice text if no file is found on disk.
+#[tauri::command(rename_all = "snake_case")]
+fn get_third_party_notices() -> String {
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            candidates.push(exe_dir.join("_up_").join("THIRD_PARTY_NOTICES.md"));
+            candidates.push(exe_dir.join("THIRD_PARTY_NOTICES.md"));
+            candidates.push(
+                exe_dir
+                    .join("..")
+                    .join("Resources")
+                    .join("_up_")
+                    .join("THIRD_PARTY_NOTICES.md"),
+            );
+            candidates.push(
+                exe_dir
+                    .join("..")
+                    .join("Resources")
+                    .join("THIRD_PARTY_NOTICES.md"),
+            );
+            candidates.push(
+                exe_dir
+                    .join("..")
+                    .join("lib")
+                    .join("MediaForge")
+                    .join("_up_")
+                    .join("THIRD_PARTY_NOTICES.md"),
+            );
+            candidates.push(
+                exe_dir
+                    .join("..")
+                    .join("lib")
+                    .join("mediaforge")
+                    .join("_up_")
+                    .join("THIRD_PARTY_NOTICES.md"),
+            );
+        }
+    }
+    candidates.push(std::path::PathBuf::from("THIRD_PARTY_NOTICES.md"));
+    candidates.push(std::path::PathBuf::from("..").join("THIRD_PARTY_NOTICES.md"));
+
+    load_third_party_notices_from_candidates(&candidates)
+}
+
 #[tauri::command(rename_all = "snake_case")]
 fn get_platform() -> String {
     context_menu::current_platform().to_string()
@@ -1985,6 +2067,22 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
+            let (language, context_menu_enabled) = match app.store("settings.json") {
+                Ok(store) => {
+                    let language = store
+                        .get("language")
+                        .and_then(|v| v.as_str().map(String::from))
+                        .unwrap_or_else(|| Settings::default().language);
+                    let enabled = store
+                        .get("context_menu_enabled")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    (language, enabled)
+                }
+                Err(_) => (Settings::default().language, false),
+            };
+            let _ = context_menu::sync_context_menu_on_startup(context_menu_enabled, &language);
+
             if let Some(req) = initial_cli_req {
                 if !matches!(req.action, cli::CliAction::Open) {
                     if let Some(win) = app.get_webview_window("main") {
@@ -2020,6 +2118,7 @@ pub fn run() {
             get_settings,
             save_settings,
             get_platform,
+            get_third_party_notices,
             get_context_menu_status,
             set_context_menu_enabled,
             get_cli_state,
@@ -2199,6 +2298,23 @@ mod tests {
         assert_eq!(info.audio_codec.as_deref(), Some("aac"));
         assert_eq!(info.audio_bitrate_kbps, Some(128));
         assert!(info.has_audio);
+    }
+
+    #[test]
+    fn test_get_third_party_notices_returns_ffmpeg_gpl_info() {
+        let notices = get_third_party_notices();
+        assert!(!notices.trim().is_empty());
+        assert!(notices.contains("FFmpeg"), "missing FFmpeg in: {notices}");
+        assert!(notices.contains("GPL"), "missing GPL in: {notices}");
+
+        let fallback = load_third_party_notices_from_candidates(&[
+            std::path::PathBuf::from("__nonexistent_mediaforge_notices__.md"),
+        ]);
+        assert!(fallback.contains("FFmpeg"));
+        assert!(fallback.contains("GPL-3.0"));
+        assert!(fallback.contains("gyan.dev"));
+        assert!(fallback.contains("eugeneware"));
+        assert!(fallback.contains("johnvansickle"));
     }
 }
 

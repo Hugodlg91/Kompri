@@ -148,6 +148,44 @@ pub fn is_context_menu_registered() -> Result<bool, String> {
     }
 }
 
+/// Synchronizes the Windows Explorer context menu on startup when upgrading or when enabled in settings.
+///
+/// Re-writes the `HKCU` registry entries with the current executable path and language when
+/// `enabled_in_settings` is `true` or existing entries are already registered.
+pub fn sync_context_menu_on_startup(enabled_in_settings: bool, lang: &str) -> Result<bool, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let exe_path = windows_impl::current_exe_path()?;
+        migrate_context_menu_at(SYSTEM_FILE_ASSOC_PREFIX, &exe_path, enabled_in_settings, lang)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (enabled_in_settings, lang);
+        Ok(false)
+    }
+}
+
+/// Migrates or refreshes Explorer context menus under `HKCU\<base_prefix>` on startup.
+///
+/// Re-registers the menu with `exe_path` and `lang` if `enabled_in_settings` is `true` or
+/// if entries are already registered under `base_prefix` (e.g. upgrading from v1.2.0 `tauri-app.exe`
+/// to v1.2.1 `MediaForge.exe`).
+#[cfg(target_os = "windows")]
+pub fn migrate_context_menu_at(
+    base_prefix: &str,
+    exe_path: &str,
+    enabled_in_settings: bool,
+    lang: &str,
+) -> Result<bool, String> {
+    let registered = is_context_menu_registered_at(base_prefix)?;
+    if enabled_in_settings || registered {
+        register_context_menu_at(base_prefix, exe_path, lang)?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
 /// Registers cascading Explorer context menus under `HKCU\<base_prefix>\<ext>\shell\MediaForge`.
 #[cfg(target_os = "windows")]
 pub fn register_context_menu_at(
@@ -491,6 +529,9 @@ mod tests {
         use winreg::RegKey;
 
         const TEST_PREFIX: &str = r"Software\MediaForge_UnitTest_ContextMenu";
+        const TEST_MIGRATION_PREFIX: &str = r"Software\MediaForge_UnitTest_ContextMenu_Migration";
+        const TEST_MIGRATION_EDGE_PREFIX: &str =
+            r"Software\MediaForge_UnitTest_ContextMenu_MigrationEdge";
 
         struct TestRegistryGuard(&'static str);
 
@@ -662,6 +703,84 @@ mod tests {
                     .is_err()
             );
             assert!(register_context_menu_at("", r"C:\MediaForge.exe", "en").is_err());
+        }
+
+        #[test]
+        fn test_upgrade_migration_from_v120_to_v121_updates_exe_path() {
+            let _guard = TestRegistryGuard::new(TEST_MIGRATION_PREFIX);
+            let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+            let old_exe = r"C:\Users\Test\AppData\Local\MediaForge\tauri-app.exe";
+            let new_exe = r"C:\Users\Test\AppData\Local\MediaForge\MediaForge.exe";
+
+            // 1. Simulate v1.2.0 installation registered with tauri-app.exe
+            register_context_menu_at(TEST_MIGRATION_PREFIX, old_exe, "fr").unwrap();
+            let old_discord_cmd = hkcu
+                .open_subkey(format!(
+                    r"{TEST_MIGRATION_PREFIX}\.mp4\shell\MediaForge\shell\01_discord\command"
+                ))
+                .unwrap();
+            assert_eq!(
+                read_val(&old_discord_cmd, ""),
+                format!("\"{old_exe}\" --action compress --preset discord -- \"%1\"")
+            );
+
+            // 2. Simulate v1.2.1 startup migration to MediaForge.exe
+            let migrated =
+                migrate_context_menu_at(TEST_MIGRATION_PREFIX, new_exe, true, "fr").unwrap();
+            assert!(migrated);
+
+            // 3. Verify HKCU commands & icons now point to MediaForge.exe
+            let new_mp4_root = hkcu
+                .open_subkey(format!(r"{TEST_MIGRATION_PREFIX}\.mp4\shell\MediaForge"))
+                .unwrap();
+            assert_eq!(read_val(&new_mp4_root, "Icon"), format!("\"{new_exe}\",0"));
+
+            let new_discord_cmd = new_mp4_root
+                .open_subkey(r"shell\01_discord\command")
+                .unwrap();
+            assert_eq!(
+                read_val(&new_discord_cmd, ""),
+                format!("\"{new_exe}\" --action compress --preset discord -- \"%1\"")
+            );
+
+            let new_jpg_cmd = hkcu
+                .open_subkey(format!(
+                    r"{TEST_MIGRATION_PREFIX}\.png\shell\MediaForge\shell\01_jpg\command"
+                ))
+                .unwrap();
+            assert_eq!(
+                read_val(&new_jpg_cmd, ""),
+                format!("\"{new_exe}\" --action convert --to jpg -- \"%1\"")
+            );
+        }
+
+        #[test]
+        fn test_migration_respects_unregistered_disabled_and_registered_fallback() {
+            let _guard = TestRegistryGuard::new(TEST_MIGRATION_EDGE_PREFIX);
+            let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+            let old_exe = r"C:\Users\Test\AppData\Local\MediaForge\tauri-app.exe";
+            let new_exe = r"C:\Users\Test\AppData\Local\MediaForge\MediaForge.exe";
+
+            // Unregistered + disabled in settings => no-op, returns false
+            assert!(
+                !migrate_context_menu_at(TEST_MIGRATION_EDGE_PREFIX, new_exe, false, "en").unwrap()
+            );
+            assert!(!is_context_menu_registered_at(TEST_MIGRATION_EDGE_PREFIX).unwrap());
+
+            // Registered previously (e.g. setting absent/false in store) => still migrates
+            register_context_menu_at(TEST_MIGRATION_EDGE_PREFIX, old_exe, "en").unwrap();
+            assert!(
+                migrate_context_menu_at(TEST_MIGRATION_EDGE_PREFIX, new_exe, false, "en").unwrap()
+            );
+            let migrated_cmd = hkcu
+                .open_subkey(format!(
+                    r"{TEST_MIGRATION_EDGE_PREFIX}\.mp4\shell\MediaForge\shell\01_discord\command"
+                ))
+                .unwrap();
+            assert_eq!(
+                read_val(&migrated_cmd, ""),
+                format!("\"{new_exe}\" --action compress --preset discord -- \"%1\"")
+            );
         }
     }
 }
