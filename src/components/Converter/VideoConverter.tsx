@@ -227,10 +227,17 @@ export function VideoConverter({
   const [targetPreset, setTargetPreset] = useState<TargetPreset>("off");
   const [customTargetMb, setCustomTargetMb] = useState<string>("10");
   const [targetCodec, setTargetCodec] = useState<"h264" | "h265">("h264");
+  const [maxQuality, setMaxQuality] = useState<boolean>(
+    Boolean(settings.target_size_max_quality)
+  );
   const [estimate, setEstimate] = useState<TargetSizeEstimate | null>(null);
   const [estimateError, setEstimateError] = useState<string | null>(null);
 
-  const discordMb = settings.preset_discord_mb ?? 10;
+  useEffect(() => {
+    setMaxQuality(Boolean(settings.target_size_max_quality));
+  }, [settings.target_size_max_quality]);
+
+  const discordMb = settings.preset_discord_mb ?? 20;
   const whatsappMb = settings.preset_whatsapp_mb ?? 16;
   const gmailMb = settings.preset_gmail_mb ?? 25;
   const activeTargetMb =
@@ -307,6 +314,7 @@ export function VideoConverter({
       target_mb: activeTargetMb,
       codec: targetCodec,
       copy_if_under: true,
+      max_quality: false,
     });
     if (typeof res === "string" && res.length > 0) setFinalOutputPath(res);
   }, [inputPath, outputPath, activeTargetMb, targetCodec, compressVideoToSize]);
@@ -320,6 +328,7 @@ export function VideoConverter({
         target_mb: activeTargetMb,
         codec: targetCodec,
         copy_if_under: false,
+        max_quality: maxQuality,
       });
       if (typeof res === "string" && res.length > 0) setFinalOutputPath(res);
     } else {
@@ -338,6 +347,7 @@ export function VideoConverter({
     targetPreset,
     activeTargetMb,
     targetCodec,
+    maxQuality,
     compressVideoToSize,
     convertVideo,
     resolution,
@@ -371,6 +381,7 @@ export function VideoConverter({
         target_mb: activeTargetMb,
         codec: targetCodec,
         copy_if_under: true,
+        max_quality: maxQuality,
       });
     } else {
       await convertVideoBatch({ files, resolution, codec, bitrate });
@@ -382,6 +393,7 @@ export function VideoConverter({
     targetPreset,
     activeTargetMb,
     targetCodec,
+    maxQuality,
     compressVideoBatchToSize,
     convertVideoBatch,
     resolution,
@@ -485,6 +497,84 @@ export function VideoConverter({
                   {c === "h264" ? "H.264" : "H.265"}
                 </button>
               ))}
+            </div>
+
+            {targetCodec === "h265" && (
+              <div
+                role="note"
+                style={{
+                  fontSize: "11px",
+                  lineHeight: 1.45,
+                  color: "var(--text)",
+                  background: "rgba(245, 158, 11, 0.1)",
+                  border: "1px solid rgba(245, 158, 11, 0.35)",
+                  borderRadius: "10px",
+                  padding: "8px 12px",
+                }}
+              >
+                {t("targetSize.h265Warning")}
+              </div>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                paddingTop: "4px",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
+                <label
+                  htmlFor="target-size-max-quality-toggle"
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--text)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {t("targetSize.maxQuality")}
+                </label>
+                <span style={{ fontSize: "11px", color: "var(--muted)", lineHeight: 1.35 }}>
+                  {t("targetSize.maxQualityHint")}
+                </span>
+              </div>
+              <button
+                id="target-size-max-quality-toggle"
+                type="button"
+                role="switch"
+                aria-checked={maxQuality}
+                aria-label={t("targetSize.maxQuality")}
+                onClick={() => setMaxQuality((v) => !v)}
+                style={{
+                  width: "40px",
+                  height: "22px",
+                  borderRadius: "999px",
+                  background: maxQuality ? "var(--accent)" : "var(--border2)",
+                  border: "1px solid var(--border)",
+                  cursor: "pointer",
+                  position: "relative",
+                  transition: "background 0.15s ease",
+                  flexShrink: 0,
+                  padding: 0,
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "2px",
+                    left: maxQuality ? "20px" : "2px",
+                    width: "16px",
+                    height: "16px",
+                    borderRadius: "50%",
+                    background: "#ffffff",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)",
+                    transition: "left 0.15s ease",
+                  }}
+                />
+              </button>
             </div>
 
             {mode === "single" && estimate?.already_under_target && (

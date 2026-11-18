@@ -562,7 +562,7 @@ export function SettingsPage() {
             <div className="responsive-grid-3">
               <PresetNumberInput
                 label="Discord (MB)"
-                value={settings.preset_discord_mb ?? 10}
+                value={settings.preset_discord_mb ?? 20}
                 onCommit={(v) => updateSettings({ preset_discord_mb: v })}
               />
               <PresetNumberInput
@@ -575,6 +575,61 @@ export function SettingsPage() {
                 value={settings.preset_gmail_mb ?? 25}
                 onCommit={(v) => updateSettings({ preset_gmail_mb: v })}
               />
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                marginTop: "6px",
+              }}
+            >
+              <label
+                htmlFor="settings-target-size-max-quality"
+                style={{ fontSize: "13px", color: "var(--text)", fontWeight: 500, cursor: "pointer" }}
+              >
+                {t("settings.targetSizeMaxQuality")}
+              </label>
+              <button
+                id="settings-target-size-max-quality"
+                type="button"
+                role="switch"
+                aria-checked={Boolean(settings.target_size_max_quality)}
+                aria-label={t("settings.targetSizeMaxQuality")}
+                onClick={() =>
+                  updateSettings({
+                    target_size_max_quality: !settings.target_size_max_quality,
+                  })
+                }
+                style={{
+                  width: "40px",
+                  height: "22px",
+                  borderRadius: "999px",
+                  background: settings.target_size_max_quality ? "var(--accent)" : "var(--border2)",
+                  border: "1px solid var(--border)",
+                  cursor: "pointer",
+                  position: "relative",
+                  transition: "background 0.15s ease",
+                  flexShrink: 0,
+                  padding: 0,
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "2px",
+                    left: settings.target_size_max_quality ? "20px" : "2px",
+                    width: "16px",
+                    height: "16px",
+                    borderRadius: "50%",
+                    background: "#ffffff",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)",
+                    transition: "left 0.15s ease",
+                  }}
+                />
+              </button>
             </div>
           </div>
         </SectionCard>

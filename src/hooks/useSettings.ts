@@ -15,6 +15,7 @@ export interface AppSettings {
   preset_whatsapp_mb?: number;
   preset_gmail_mb?: number;
   context_menu_enabled?: boolean;
+  target_size_max_quality?: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -24,11 +25,16 @@ const DEFAULT_SETTINGS: AppSettings = {
   default_video_format: "mp4",
   default_audio_format: "mp3",
   default_image_format: "webp",
-  preset_discord_mb: 10,
+  preset_discord_mb: 20,
   preset_whatsapp_mb: 16,
   preset_gmail_mb: 25,
   context_menu_enabled: false,
+  target_size_max_quality: false,
 };
+
+function validMb(v: unknown, fallback?: number): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : fallback;
+}
 
 // ─── Theme helper ─────────────────────────────────────────────────────────────
 
@@ -50,10 +56,12 @@ export function useSettings() {
         const merged: AppSettings = {
           ...DEFAULT_SETTINGS,
           ...s,
-          preset_discord_mb: s?.preset_discord_mb ?? DEFAULT_SETTINGS.preset_discord_mb,
+          preset_discord_mb: validMb(s?.preset_discord_mb, DEFAULT_SETTINGS.preset_discord_mb),
           preset_whatsapp_mb: s?.preset_whatsapp_mb ?? DEFAULT_SETTINGS.preset_whatsapp_mb,
           preset_gmail_mb: s?.preset_gmail_mb ?? DEFAULT_SETTINGS.preset_gmail_mb,
           context_menu_enabled: s?.context_menu_enabled ?? DEFAULT_SETTINGS.context_menu_enabled,
+          target_size_max_quality:
+            s?.target_size_max_quality ?? DEFAULT_SETTINGS.target_size_max_quality,
         };
         setSettings(merged);
         applyTheme(merged.theme);
