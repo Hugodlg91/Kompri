@@ -423,6 +423,7 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
 - [x] **Revue indépendante (sous-agent Opus, non auteur)** : aucun bloquant. Corrigé : `--max-quality false` (séparé par un espace) activait le mode et prenait « false » pour un fichier (+ rejet de `--max-quality=<invalide>`) ; docs qui attribuaient le gain au débruitage alors qu'il vient surtout du preset slow ; débruitage à 60 i/s avant la réduction de fps (ordre changé, ~2× plus rapide) ; avertissement H.265 ajouté aussi en conversion classique ; exemple `--max-quality=false` ; nom de fichier erroné dans le PLAN ; commentaire protégeant l'ordre migration → sync menu → CLI. Laissé tel quel (antérieur au lot) : le libellé du menu clic droit affiche « Discord (20 Mo) » même si le preset a été personnalisé.
 - [x] **Build Tauri complet** : `npm run tauri build` → `Kompri_1.3.0_x64-setup.exe` + `Kompri_1.3.0_x64_en-US.msi`.
 - [x] **Validation** : **74/74 tests Rust**, **61/61 tests Vitest**, **0 warning Clippy** (`--all-targets -D warnings`), **0 erreur TypeScript**.
+- [x] **Licence Open Source (GNU GPLv3)** : passage de `MIT + Commons Clause` vers **`GPL-3.0-only`** (`LICENSE`, `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `README.md`, `THIRD_PARTY_NOTICES.md`, `arbo.md`) pour une licence OSI reconnue, cohérente avec les binaires FFmpeg/x264/x265 embarqués et protégeant contre les forks propriétaires fermés.
 
 ---
 

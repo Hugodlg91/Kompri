@@ -26,7 +26,7 @@ Kompri/
 ├── DEVLOG.md                           # Journal de développement (étapes 1-17)
 ├── CHANGELOG.md                        # Notes de version (v1.0.0 → v1.2.1)
 ├── THIRD_PARTY_NOTICES.md              # Notices et sources FFmpeg/FFprobe (GPLv3) par plateforme
-├── LICENSE                             # Licence du projet (MIT + Commons Clause)
+├── LICENSE                             # Licence du projet (GNU GPLv3)
 ├── README.md                           # Documentation générale du projet
 ├── arbo.md                             # Ce fichier — arborescence du projet
 │

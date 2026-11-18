@@ -8,6 +8,7 @@
 
 [![Version](https://img.shields.io/badge/version-1.3.0-6366f1?style=flat-square)](https://github.com/Hugodlg91/Kompri/releases)
 [![CI](https://github.com/Hugodlg91/Kompri/actions/workflows/ci.yml/badge.svg)](https://github.com/Hugodlg91/Kompri/actions/workflows/ci.yml)
+[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-lightgrey?style=flat-square)](https://github.com/Hugodlg91/Kompri/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-24c8db?style=flat-square)](https://tauri.app)
 
@@ -195,8 +196,8 @@ See [`arbo.md`](arbo.md) for the full annotated file tree.
 
 ## License
 
-MIT + Commons Clause — © 2026 VladimirWRLD
-Free to use and contribute — commercial resale prohibited.
+GNU General Public License v3.0 ([`GPL-3.0-only`](LICENSE)) — © 2026 VladimirWRLD
+Free and open-source software: free to use, modify, and redistribute under the same GPLv3 license.
 
 ---
 
