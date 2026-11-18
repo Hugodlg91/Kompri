@@ -584,6 +584,8 @@ mod tests {
         const TEST_MIGRATION_PREFIX: &str = r"Software\Kompri_UnitTest_ContextMenu_Migration";
         const TEST_MIGRATION_EDGE_PREFIX: &str =
             r"Software\Kompri_UnitTest_ContextMenu_MigrationEdge";
+        const TEST_DISCORD_20MB_PREFIX: &str =
+            r"Software\Kompri_UnitTest_ContextMenu_Discord20MB";
         const TEST_RENAME_PREFIX: &str =
             r"Software\Kompri_UnitTest_ContextMenu_RenameFromMediaForge";
         const TEST_RENAME_DISABLE_PREFIX: &str =
@@ -808,6 +810,43 @@ mod tests {
                 read_val(&new_jpg_cmd, ""),
                 format!("\"{new_exe}\" --action convert --to jpg -- \"%1\"")
             );
+        }
+
+        #[test]
+        fn test_startup_sync_rewrites_old_discord_10mb_label() {
+            let _guard = TestRegistryGuard::new(TEST_DISCORD_20MB_PREFIX);
+            let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+            let exe = r"C:\Users\Test\AppData\Local\Kompri\Kompri.exe";
+
+            register_context_menu_at(TEST_DISCORD_20MB_PREFIX, exe, "fr").unwrap();
+
+            // Simulate a menu written by a previous build that still shows 10 MB
+            let set_label = |ext: &str, label: &str| {
+                let (key, _) = hkcu
+                    .create_subkey(format!(
+                        r"{TEST_DISCORD_20MB_PREFIX}\{ext}\shell\Kompri\shell\01_discord"
+                    ))
+                    .unwrap();
+                key.set_value("MUIVerb", &label).unwrap();
+            };
+            let read_label = |ext: &str| {
+                let key = hkcu
+                    .open_subkey(format!(
+                        r"{TEST_DISCORD_20MB_PREFIX}\{ext}\shell\Kompri\shell\01_discord"
+                    ))
+                    .unwrap();
+                read_val(&key, "MUIVerb")
+            };
+            set_label(".mp4", "Compresser pour Discord (10 Mo)");
+            assert_eq!(read_label(".mp4"), "Compresser pour Discord (10 Mo)");
+
+            assert!(migrate_context_menu_at(TEST_DISCORD_20MB_PREFIX, exe, true, "fr").unwrap());
+            assert_eq!(read_label(".mp4"), "Compresser pour Discord (20 Mo)");
+
+            // Same check in English on .mkv
+            set_label(".mkv", "Compress for Discord (10 MB)");
+            assert!(migrate_context_menu_at(TEST_DISCORD_20MB_PREFIX, exe, true, "en").unwrap());
+            assert_eq!(read_label(".mkv"), "Compress for Discord (20 MB)");
         }
 
         #[test]
