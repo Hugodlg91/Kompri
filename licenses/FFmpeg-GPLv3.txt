@@ -3,7 +3,7 @@ FFmpeg & FFprobe — Copyright and License Notice
 
 Copyright (c) 2000-2026 the FFmpeg developers <https://ffmpeg.org>
 
-MediaForge bundles standalone prebuilt FFmpeg and FFprobe binaries executed as
+Kompri bundles standalone prebuilt FFmpeg and FFprobe binaries executed as
 external sidecar processes. Because these binaries are compiled with
 --enable-gpl --enable-version3 (including GPL-licensed libraries such as
 libx264 and libx265), the bundled FFmpeg and FFprobe binaries are governed by

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Records the README demo GIF/MP4 from the real MediaForge UI running in a browser
+// Records the README demo GIF/MP4 from the real Kompri UI running in a browser
 // with a simulated Tauri backend (see demo-main.ts for where the numbers come from).
 //
 // Usage:  npm run record-demo
 // Needs:  ffmpeg on PATH. Browser: Playwright's Chromium (npx playwright install chromium)
 //         or set CHROME_PATH to an installed Chrome/Edge.
-// Output: docs/assets/mediaforge-demo.gif and docs/assets/mediaforge-demo.mp4
+// Output: docs/assets/kompri-demo.gif and docs/assets/kompri-demo.mp4
 import { createServer } from "vite";
 import { chromium } from "playwright";
 import { execFileSync } from "node:child_process";
@@ -92,9 +92,9 @@ mkdirSync(outDir, { recursive: true });
 const trim = ["-ss", start.toFixed(2), "-t", duration.toFixed(2), "-i", webm];
 execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", ...trim,
   "-vf", "setpts=PTS/1.15,fps=12,scale=860:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
-  "-loop", "0", join(outDir, "mediaforge-demo.gif")], { stdio: "inherit" });
+  "-loop", "0", join(outDir, "kompri-demo.gif")], { stdio: "inherit" });
 execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", ...trim,
   "-vf", "setpts=PTS/1.15,fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-  "-movflags", "+faststart", "-an", join(outDir, "mediaforge-demo.mp4")], { stdio: "inherit" });
+  "-movflags", "+faststart", "-an", join(outDir, "kompri-demo.mp4")], { stdio: "inherit" });
 rmSync(videoDir, { recursive: true, force: true });
-console.log("Demo written to docs/assets/mediaforge-demo.gif and .mp4");
+console.log("Demo written to docs/assets/kompri-demo.gif and .mp4");

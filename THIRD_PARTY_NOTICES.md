@@ -1,8 +1,8 @@
 # Third-Party Notices
 
-MediaForge itself is distributed under the terms of [`LICENSE`](LICENSE) (MIT License + Commons Clause).
+Kompri (formerly Kompri) itself is distributed under the terms of [`LICENSE`](LICENSE) (MIT License + Commons Clause).
 
-MediaForge also bundles standalone third-party executables (**FFmpeg** and **FFprobe**) executed as external sidecar child processes via Tauri's shell sidecar mechanism. Those bundled binaries are independent works governed by their respective open-source licenses described below.
+Kompri also bundles standalone third-party executables (**FFmpeg** and **FFprobe**) executed as external sidecar child processes via Tauri's shell sidecar mechanism. Those bundled binaries are independent works governed by their respective open-source licenses described below.
 
 ---
 
@@ -13,7 +13,7 @@ MediaForge also bundles standalone third-party executables (**FFmpeg** and **FFp
 
 ### Why GPLv3 Applies to the Bundled FFmpeg/FFprobe Binaries
 
-Although parts of upstream FFmpeg are available under LGPLv2.1+, the prebuilt standalone FFmpeg/FFprobe binaries bundled in MediaForge releases are compiled with `--enable-gpl --enable-version3` and incorporate GPL-licensed components and encoders such as `libx264` and `libx265`. Under the terms of FFmpeg's build configuration, distributing binaries built with `--enable-gpl --enable-version3` places those FFmpeg/FFprobe binaries under the **GNU General Public License v3.0 (GPLv3)**.
+Although parts of upstream FFmpeg are available under LGPLv2.1+, the prebuilt standalone FFmpeg/FFprobe binaries bundled in Kompri releases are compiled with `--enable-gpl --enable-version3` and incorporate GPL-licensed components and encoders such as `libx264` and `libx265`. Under the terms of FFmpeg's build configuration, distributing binaries built with `--enable-gpl --enable-version3` places those FFmpeg/FFprobe binaries under the **GNU General Public License v3.0 (GPLv3)**.
 
 ### Bundled Builds by Platform
 
@@ -27,4 +27,4 @@ Although parts of upstream FFmpeg are available under LGPLv2.1+, the prebuilt st
 
 - The complete license text governing the bundled FFmpeg and FFprobe binaries is included in this repository and packaged alongside the application at [`licenses/FFmpeg-GPLv3.txt`](licenses/FFmpeg-GPLv3.txt).
 - Corresponding source code archives and build scripts for each platform binary are hosted at the upstream source URLs listed in the table above.
-- Because MediaForge invokes `ffmpeg` and `ffprobe` strictly as separate standalone sidecar binaries via CLI arguments, users may also replace those binaries in accordance with [`src-tauri/binaries/README.md`](src-tauri/binaries/README.md).
+- Because Kompri invokes `ffmpeg` and `ffprobe` strictly as separate standalone sidecar binaries via CLI arguments, users may also replace those binaries in accordance with [`src-tauri/binaries/README.md`](src-tauri/binaries/README.md).

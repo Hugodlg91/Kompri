@@ -1,4 +1,4 @@
-﻿# MediaForge v1.2.0 — End-to-End Target-Size & CLI Integration Test Suite
+﻿# Kompri (formerly MediaForge) v1.2.0 — End-to-End Target-Size & CLI Integration Test Suite
 # Generates 10s, 60s, and 300s (5 min) test videos in 1080p60 and 4K via FFmpeg,
 # encodes them through the 2-pass Target Size algorithm for Discord (10 MB),
 # WhatsApp (16 MB), and Gmail (25 MB), and verifies:
@@ -17,10 +17,10 @@ if (-not (Test-Path $Ffprobe)) {
     throw "FFprobe binary not found at $Ffprobe"
 }
 
-$WorkDir = Join-Path $env:TEMP "mediaforge-e2e-target-size-$(Get-Random)"
+$WorkDir = Join-Path $env:TEMP "kompri-e2e-target-size-$(Get-Random)"
 New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
 
-Write-Host "=== MediaForge Target-Size E2E Test Suite ===" -ForegroundColor Cyan
+Write-Host "=== Kompri Target-Size E2E Test Suite ===" -ForegroundColor Cyan
 Write-Host "WorkDir: $WorkDir"
 
 try {

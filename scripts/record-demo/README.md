@@ -1,6 +1,6 @@
 # record-demo
 
-Regenerates the README demo (`docs/assets/mediaforge-demo.gif` and `.mp4`) from the real MediaForge UI.
+Regenerates the README demo (`docs/assets/kompri-demo.gif` and `.mp4`) from the real Kompri UI.
 
 ```bash
 npx playwright install chromium   # once (or set CHROME_PATH to an installed Chrome/Edge)
