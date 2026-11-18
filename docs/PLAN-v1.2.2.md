@@ -14,5 +14,5 @@
 - [x] **7. macOS / Linux notes**: CHANGELOG + README *Upgrading from MediaForge*.
 - [x] **8. Showcase**: README (Kompri, "formerly MediaForge", new repo links), `npm run record-demo`, social preview regenerated from the harness (`npm run social-preview`), CHANGELOG [1.2.2], version 1.2.2.
 - [ ] **9. Repo**: GitHub repo rename + `git remote set-url` + description/topics via `gh api` — **blocked**: repo not renamed yet (`Hugodlg91/Kompri` → 404) and `gh` not installed. Description/topics contain no "MediaForge" anyway.
-- [ ] **10. Independent review** of the whole diff, fixes, full checks.
-- [ ] **11. Full Tauri build** → `Kompri_1.2.2_x64-setup.exe`.
+- [x] **10. Independent review** of the whole diff, fixes, full checks.
+- [x] **11. Full Tauri build** → `Kompri_1.2.2_x64-setup.exe` + `Kompri_1.2.2_x64_en-US.msi`; real install test MediaForge → Kompri on Windows (see DEVLOG).

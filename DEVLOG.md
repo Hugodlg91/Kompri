@@ -362,6 +362,19 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
   5. Ajout d'une ligne « Anciennement MediaForge » sous le nom dans *À propos* (5 langues) pour que les utilisateurs existants reconnaissent l'appli.
   6. Nouveau script `scripts/record-demo/social-preview.mjs` (`npm run social-preview`) pour rendre l'image d'aperçu reproductible avec des chiffres réels.
   7. Pour la démo, FFmpeg = binaire sidecar du repo mis temporairement dans le `PATH`, navigateur = Chrome installé (`CHROME_PATH`), et `npx playwright install ffmpeg` (encodeur vidéo de Playwright).
+  8. Fermeture de MediaForge en cours d'exécution : macro maison (`KOMPRI_CLOSE_LEGACY_APP`, mêmes appels `nsis_tauri_utils` et messages localisés que Tauri) plutôt que `CheckIfAppIsRunning`, dont les labels dérivent de `__LINE__` et qui est déjà inséré dans la même section ; `hooks.nsh` est inclus avant `INSTALLMODE` / `Var`, donc tout est en macros, pas en `Function`.
+- [x] **Revue indépendante (sous-agent relecteur)** — corrigé :
+  1. *Must fix* : le hook supprimait l'entrée de désinstallation de MediaForge même si son désinstalleur échouait ou manquait (MediaForge orphelin). Désormais : `ClearErrors` + `ExecWait` ; désinstalleur absent → suppression directe des fichiers connus, raccourcis et clés ; code de sortie ≠ 0 → on laisse MediaForge et son entrée en place (désinstallable depuis *Paramètres → Applications*) ; succès → nettoyage final.
+  2. *Must fix* : coquille « Kompri (formerly Kompri) » dans `THIRD_PARTY_NOTICES.md` (fichier embarqué).
+  3. *Should fix* : MediaForge était fermé sans demande (le désinstalleur `/S` le tue). Ajout d'une demande OK/Annuler en mode interactif (fermeture directe en silencieux/passif, abandon si Annuler), pour `MediaForge.exe` et `tauri-app.exe`.
+  4. *Nits* : raccourcis résiduels supprimés seulement s'ils pointent vers l'ancienne install (`IsShortcutTarget`), suppression du `Delete tauri-app.exe` devenu inutile, `.rpm` dans le tableau du README, « le `.msi` remplace » (et non « met à niveau sur place » : Kompri va dans `Program Files\Kompri`), `try/finally` dans `social-preview.mjs`, ligne vide entre tests.
+- [x] **Test réel de l'installeur sur Windows** (machine de dev, sans MediaForge installé au départ ; `%APPDATA%\com.mediaforge.app` sauvegardé avant) avec `MediaForge_1.2.0_x64-setup.exe` (seule ancienne build disponible en local, même famille de template) :
+  - Install MediaForge 1.2.0 `/S` + clé `shell\MediaForge` posée sur `.mp4`, puis install `Kompri_1.2.2_x64-setup.exe /S` → dossier `%LOCALAPPDATA%\MediaForge`, `Uninstall\MediaForge`, `Software\mediaforge\MediaForge`, raccourcis Menu Démarrer + Bureau MediaForge et `shell\MediaForge` **tous supprimés** ; Kompri 1.2.2 installé dans `%LOCALAPPDATA%\Kompri` avec son raccourci ; `settings.json`, `history.json`, `presets.json` **identiques octet par octet**.
+  - Variante « désinstalleur absent » (`uninstall.exe` supprimé à la main) → fichiers, raccourcis et entrée MediaForge supprimés quand même.
+  - Nettoyage : désinstallation silencieuse de Kompri, machine revenue à l'état initial, données identiques.
+  - Non testé ici : l'appli Kompri lancée réellement (la réécriture des clés au démarrage est couverte par les tests unitaires sur le vrai registre), le `.msi` (UpgradeCode vérifié dans `main.wxs` : `a779c94a-…`, `MajorUpgrade`), macOS et Linux.
+- [x] **Build Tauri complet** : `npm run tauri build` → `Kompri_1.2.2_x64-setup.exe` + `Kompri_1.2.2_x64_en-US.msi` (makensis compile le hook sans erreur).
+- [x] **Validation** : **65/65 tests Rust** (dont 2 nouveaux de migration) + **55/55 tests Vitest**, **0 warning Clippy** (`--all-targets -D warnings`), **0 erreur TypeScript**.
 
 ---
 
