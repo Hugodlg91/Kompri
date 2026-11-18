@@ -36,6 +36,25 @@ const RESOLUTIONS = [
   { label: "4K",    value: "3840:2160" },
 ];
 
+function H265Warning({ text }: { text: string }) {
+  return (
+    <div
+      role="note"
+      style={{
+        fontSize: "11px",
+        lineHeight: 1.45,
+        color: "var(--text)",
+        background: "rgba(245, 158, 11, 0.1)",
+        border: "1px solid rgba(245, 158, 11, 0.35)",
+        borderRadius: "10px",
+        padding: "8px 12px",
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
 const CODECS = [
   { label: "Auto",  value: undefined },
   { label: "H.264", value: "h264" },
@@ -499,22 +518,7 @@ export function VideoConverter({
               ))}
             </div>
 
-            {targetCodec === "h265" && (
-              <div
-                role="note"
-                style={{
-                  fontSize: "11px",
-                  lineHeight: 1.45,
-                  color: "var(--text)",
-                  background: "rgba(245, 158, 11, 0.1)",
-                  border: "1px solid rgba(245, 158, 11, 0.35)",
-                  borderRadius: "10px",
-                  padding: "8px 12px",
-                }}
-              >
-                {t("targetSize.h265Warning")}
-              </div>
-            )}
+            {targetCodec === "h265" && <H265Warning text={t("targetSize.h265Warning")} />}
 
             <div
               style={{
@@ -683,6 +687,11 @@ export function VideoConverter({
                   </div>
                 ))}
               </div>
+              {codec === "h265" && (
+                <div style={{ marginTop: "12px" }}>
+                  <H265Warning text={t("targetSize.h265Warning")} />
+                </div>
+              )}
             </div>
           )}
         </>
