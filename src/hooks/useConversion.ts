@@ -38,6 +38,7 @@ export interface CompressVideoToSizeParams {
   target_mb: number;
   codec?: string;
   copy_if_under?: boolean;
+  max_quality?: boolean;
 }
 
 export interface CompressVideoBatchParams {
@@ -45,7 +46,10 @@ export interface CompressVideoBatchParams {
   target_mb: number;
   codec?: string;
   copy_if_under?: boolean;
+  max_quality?: boolean;
 }
+
+export type CompressVideoBatchToSizeParams = CompressVideoBatchParams;
 
 export interface VideoConvertParams {
   input_path: string;
@@ -288,7 +292,10 @@ export function useConversion() {
     try {
       const result = await invoke<string>(
         "compress_video_to_size",
-        params as unknown as Record<string, unknown>
+        {
+          ...params,
+          max_quality: params.max_quality ?? false,
+        } as unknown as Record<string, unknown>
       );
       setStatus("done");
       recordHistory({
@@ -382,7 +389,10 @@ export function useConversion() {
       try {
         const res = await invoke<BatchResult[]>(
           "compress_video_batch_to_size",
-          params as unknown as Record<string, unknown>
+          {
+            ...params,
+            max_quality: params.max_quality ?? false,
+          } as unknown as Record<string, unknown>
         );
         setResults(res);
         setStatus("done");

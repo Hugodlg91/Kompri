@@ -48,7 +48,10 @@
     "downscaled": "automatisch skaliert",
     "alreadyUnder": "Dieses Video ({{size}}) liegt bereits unter dem Ziel von {{target}} MB — keine Neukodierung nötig.",
     "copyAsIs": "Unverändert kopieren (ohne Neukodierung)",
-    "tooSmall": "Die Zielgröße ist für die Dauer dieses Videos zu klein."
+    "tooSmall": "Die Zielgröße ist für die Dauer dieses Videos zu klein.",
+    "h265Warning": "Bessere Qualität bei gleicher Größe, aber manche Empfänger können das Video nicht abspielen.",
+    "maxQuality": "Maximale Qualität (langsamer)",
+    "maxQualityHint": "Slow-Preset + leichte Rauschminderung und adaptive Schärfung"
   },
   "status": {
     "ready": "Bereit",
@@ -112,6 +115,7 @@
     "defaultAudio": "Audio",
     "defaultImage": "Bild",
     "targetSizePresets": "Zielgrößen-Presets (MB)",
+    "targetSizeMaxQuality": "„Maximale Qualität (langsamer)“ standardmäßig für Zielgröße aktivieren",
     "contextMenu": "In das Windows Explorer-Kontextmenü integrieren",
     "contextMenuHint": "Fügt das Kompri-Untermenü für Video-, Audio- und Bilddateien hinzu (HKCU, kein Admin nötig).",
     "about": "Über",

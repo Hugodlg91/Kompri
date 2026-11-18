@@ -48,7 +48,10 @@
     "downscaled": "reduzida auto",
     "alreadyUnder": "Este vídeo ({{size}}) já está abaixo do limite de {{target}} MB — sem necessidade de recodificar.",
     "copyAsIs": "Copiar como está (sem recodificar)",
-    "tooSmall": "O tamanho alvo é muito pequeno para a duração deste vídeo."
+    "tooSmall": "O tamanho alvo é muito pequeno para a duração deste vídeo.",
+    "h265Warning": "Melhor qualidade com o mesmo tamanho, mas alguns destinatários não conseguirão reproduzir o vídeo.",
+    "maxQuality": "Qualidade máxima (mais lento)",
+    "maxQualityHint": "Preset slow + redução leve de ruído e nitidez adaptativa"
   },
   "status": {
     "ready": "Pronto",
@@ -112,6 +115,7 @@
     "defaultAudio": "Áudio",
     "defaultImage": "Imagem",
     "targetSizePresets": "Predefinições de tamanho alvo (MB)",
+    "targetSizeMaxQuality": "Ativar \"Qualidade máxima (mais lento)\" por padrão no tamanho-alvo",
     "contextMenu": "Integrar ao menu de contexto do Explorador",
     "contextMenuHint": "Adiciona o submenu Kompri em arquivos de vídeo, áudio e imagem (HKCU, sem admin).",
     "about": "Sobre",

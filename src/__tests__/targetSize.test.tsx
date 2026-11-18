@@ -132,7 +132,7 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
     });
   });
 
-  it("calls estimate_target_size and displays estimated resolution and bitrate when selecting Discord (10 MB)", async () => {
+  it("calls estimate_target_size and displays estimated resolution and bitrate when selecting Discord (20 MB)", async () => {
     mocks.invoke.mockImplementation((command: string) => {
       if (command === "get_settings") {
         return Promise.resolve({
@@ -158,8 +158,8 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
         return Promise.resolve({
           already_under_target: false,
           source_size_bytes: 52 * 1024 * 1024,
-          target_bytes: 10 * 1024 * 1024,
-          budget_bytes: 9_800_000,
+          target_bytes: 20 * 1024 * 1024,
+          budget_bytes: 19_600_000,
           video_kbps: 820,
           audio_kbps: 96,
           target_width: 1280,
@@ -180,13 +180,13 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
 
     await dropVideoFile("C:/videos/gameplay.mkv");
 
-    const discordBtn = await screen.findByRole("button", { name: "Discord (10 MB)" });
+    const discordBtn = await screen.findByRole("button", { name: "Discord (20 MB)" });
     fireEvent.click(discordBtn);
 
     await waitFor(() => {
       expect(mocks.invoke).toHaveBeenCalledWith("estimate_target_size", {
         input_path: "C:/videos/gameplay.mkv",
-        target_mb: 10,
+        target_mb: 20,
         codec: "h264",
       });
     });
@@ -224,8 +224,8 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
         return Promise.resolve({
           already_under_target: true,
           source_size_bytes: 4 * 1024 * 1024,
-          target_bytes: 10 * 1024 * 1024,
-          budget_bytes: 9_800_000,
+          target_bytes: 20 * 1024 * 1024,
+          budget_bytes: 19_600_000,
           video_kbps: 2000,
           audio_kbps: 128,
           target_width: 1280,
@@ -248,10 +248,10 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
     );
 
     await dropVideoFile("C:/videos/short.mp4");
-    fireEvent.click(await screen.findByRole("button", { name: "Discord (10 MB)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Discord (20 MB)" }));
 
     expect(
-      await screen.findByText(/already under the 10 MB target — no re-encoding needed/i)
+      await screen.findByText(/already under the 20 MB target — no re-encoding needed/i)
     ).toBeInTheDocument();
 
     const copyBtn = screen.getByRole("button", { name: "Copy as-is (no re-encode)" });
@@ -261,9 +261,10 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
       expect(mocks.invoke).toHaveBeenCalledWith("compress_video_to_size", {
         input_path: "C:/videos/short.mp4",
         output_path: "C:/videos/short_converted.mp4",
-        target_mb: 10,
+        target_mb: 20,
         codec: "h264",
         copy_if_under: true,
+        max_quality: false,
       });
     });
   });
@@ -403,10 +404,38 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
     const { result } = renderHook(() => useSettings());
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.settings.preset_discord_mb).toBe(10);
+    expect(result.current.settings.preset_discord_mb).toBe(20);
     expect(result.current.settings.preset_whatsapp_mb).toBe(16);
     expect(result.current.settings.preset_gmail_mb).toBe(25);
     expect(result.current.settings.context_menu_enabled).toBe(false);
+    expect(result.current.settings.target_size_max_quality).toBe(false);
+  });
+
+  it("keeps the backend Discord preset value (12 stays 12) and falls back to 20 when missing or invalid", async () => {
+    const base = {
+      language: "en",
+      theme: "dark",
+      output_dir: null,
+      default_video_format: "mp4",
+      default_audio_format: "mp3",
+      default_image_format: "webp",
+    };
+    for (const [backend, expected] of [
+      [{ preset_discord_mb: 12 }, 12],
+      [{}, 20],
+      [{ preset_discord_mb: 0 }, 20],
+    ] as const) {
+      mocks.invoke.mockImplementation((command: string) =>
+        command === "get_settings"
+          ? Promise.resolve({ ...base, ...backend })
+          : Promise.resolve()
+      );
+      const hook = renderHook(() => useSettings());
+      await waitFor(() => expect(hook.result.current.isLoading).toBe(false));
+      expect(hook.result.current.settings.preset_discord_mb).toBe(expected);
+      expect("discord_20mb_migrated" in hook.result.current.settings).toBe(false);
+      hook.unmount();
+    }
   });
 
   it("tracks pass and totalPasses in useConversion during batch 2-pass target-size compression", async () => {
@@ -561,7 +590,7 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
     );
 
     await dropVideoFile("C:/videos/long_movie.mp4");
-    fireEvent.click(await screen.findByRole("button", { name: "Discord (10 MB)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Discord (20 MB)" }));
 
     expect(await screen.findByText(en.targetSize.tooSmall)).toBeInTheDocument();
 
@@ -665,6 +694,271 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
     expect(screen.getByRole("button", { name: "Open folder" })).toBeInTheDocument();
   });
 
+  it("displays non-blocking H.265 warning when selecting H.265 in Target Size mode and hides it when switching back to H.264", async () => {
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") {
+        return Promise.resolve({
+          language: "en",
+          theme: "dark",
+          output_dir: null,
+          default_video_format: "mp4",
+          default_audio_format: "mp3",
+          default_image_format: "webp",
+        });
+      }
+      if (command === "get_media_info") {
+        return Promise.resolve({
+          duration: 60,
+          width: 1920,
+          height: 1080,
+          video_codec: "h264",
+          file_size: 40 * 1024 * 1024,
+          fps: 30,
+        });
+      }
+      if (command === "estimate_target_size") {
+        return Promise.resolve({
+          already_under_target: false,
+          source_size_bytes: 40 * 1024 * 1024,
+          target_bytes: 20 * 1024 * 1024,
+          budget_bytes: 19_600_000,
+          video_kbps: 2400,
+          audio_kbps: 128,
+          target_width: 1920,
+          target_height: 1080,
+          target_fps: 30,
+          downscaled: false,
+          fps_reduced: false,
+        });
+      }
+      return Promise.resolve();
+    });
+
+    render(
+      <SettingsProvider>
+        <VideoConverter />
+      </SettingsProvider>
+    );
+
+    await dropVideoFile("C:/videos/clip.mp4");
+    fireEvent.click(await screen.findByRole("button", { name: "Discord (20 MB)" }));
+    await waitFor(() => {
+      expect(mocks.invoke).toHaveBeenCalledWith("estimate_target_size", {
+        input_path: "C:/videos/clip.mp4",
+        target_mb: 20,
+        codec: "h264",
+      });
+    });
+
+    // Default is H.264 -> no warning
+    expect(screen.queryByText(en.targetSize.h265Warning)).toBeNull();
+
+    // Switch to H.265 -> warning appears, Convert stays enabled
+    fireEvent.click(screen.getByRole("button", { name: "H.265" }));
+    expect(await screen.findByText(en.targetSize.h265Warning)).toBeInTheDocument();
+    expect(screen.getByRole("note")).toHaveTextContent(en.targetSize.h265Warning);
+    expect(screen.getByRole("button", { name: en.converter.convert })).not.toBeDisabled();
+    await waitFor(() => {
+      expect(mocks.invoke).toHaveBeenCalledWith("estimate_target_size", {
+        input_path: "C:/videos/clip.mp4",
+        target_mb: 20,
+        codec: "h265",
+      });
+    });
+
+    // Switch back to H.264 -> warning disappears
+    mocks.invoke.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "H.264" }));
+    await waitFor(() => {
+      expect(mocks.invoke).toHaveBeenCalledWith("estimate_target_size", {
+        input_path: "C:/videos/clip.mp4",
+        target_mb: 20,
+        codec: "h264",
+      });
+    });
+    expect(screen.queryByText(en.targetSize.h265Warning)).toBeNull();
+  });
+
+  it("passes max_quality: true when Max quality (slower) is toggled in VideoConverter and persists targetSizeMaxQuality in SettingsPage", async () => {
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") {
+        return Promise.resolve({
+          language: "en",
+          theme: "dark",
+          output_dir: null,
+          default_video_format: "mp4",
+          default_audio_format: "mp3",
+          default_image_format: "webp",
+        });
+      }
+      if (command === "get_media_info") {
+        return Promise.resolve({
+          duration: 60,
+          width: 1920,
+          height: 1080,
+          video_codec: "h264",
+          file_size: 40 * 1024 * 1024,
+          fps: 30,
+        });
+      }
+      if (command === "estimate_target_size") {
+        return Promise.resolve({
+          already_under_target: false,
+          source_size_bytes: 40 * 1024 * 1024,
+          target_bytes: 20 * 1024 * 1024,
+          budget_bytes: 19_600_000,
+          video_kbps: 2400,
+          audio_kbps: 128,
+          target_width: 1920,
+          target_height: 1080,
+          target_fps: 30,
+          downscaled: false,
+          fps_reduced: false,
+        });
+      }
+      if (command === "compress_video_to_size") {
+        return Promise.resolve("C:/videos/clip_converted.mp4");
+      }
+      if (command === "get_platform") return Promise.resolve("linux");
+      return Promise.resolve();
+    });
+
+    const { unmount } = render(
+      <SettingsProvider>
+        <VideoConverter />
+      </SettingsProvider>
+    );
+
+    await dropVideoFile("C:/videos/clip.mp4");
+    fireEvent.click(await screen.findByRole("button", { name: "Discord (20 MB)" }));
+
+    const maxQualityToggle = await screen.findByRole("switch", {
+      name: en.targetSize.maxQuality,
+    });
+    expect(maxQualityToggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByText(en.targetSize.maxQualityHint)).toBeInTheDocument();
+
+    fireEvent.click(maxQualityToggle);
+    expect(maxQualityToggle).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: en.converter.convert }));
+
+    await waitFor(() => {
+      expect(mocks.invoke).toHaveBeenCalledWith("compress_video_to_size", {
+        input_path: "C:/videos/clip.mp4",
+        output_path: "C:/videos/clip_converted.mp4",
+        target_mb: 20,
+        codec: "h264",
+        copy_if_under: false,
+        max_quality: true,
+      });
+    });
+
+    unmount();
+    mocks.invoke.mockClear();
+
+    render(
+      <SettingsProvider>
+        <SettingsPage />
+      </SettingsProvider>
+    );
+
+    const settingsMaxQualityToggle = await screen.findByRole("switch", {
+      name: en.settings.targetSizeMaxQuality,
+    });
+    expect(settingsMaxQualityToggle).toHaveAttribute("aria-checked", "false");
+
+    fireEvent.click(settingsMaxQualityToggle);
+
+    await waitFor(() => {
+      expect(mocks.invoke).toHaveBeenCalledWith(
+        "save_settings",
+        expect.objectContaining({
+          settings: expect.objectContaining({
+            target_size_max_quality: true,
+          }),
+        })
+      );
+    });
+  });
+
+  it("has the exact French H.265 warning sentence", () => {
+    expect(fr.targetSize.h265Warning).toBe(
+      "Meilleure qualité à taille égale, mais certains destinataires ne pourront pas lire la vidéo."
+    );
+  });
+
+  it("initialises Max quality from settings and sends it in single and batch target-size invokes", async () => {
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") {
+        return Promise.resolve({
+          language: "en",
+          theme: "dark",
+          output_dir: null,
+          default_video_format: "mp4",
+          default_audio_format: "mp3",
+          default_image_format: "webp",
+          target_size_max_quality: true,
+        });
+      }
+      if (command === "get_media_info") {
+        return Promise.resolve({
+          duration: 60, width: 1920, height: 1080, video_codec: "h264",
+          file_size: 40 * 1024 * 1024, fps: 30,
+        });
+      }
+      if (command === "estimate_target_size") {
+        return Promise.resolve({
+          already_under_target: false,
+          source_size_bytes: 40 * 1024 * 1024,
+          target_bytes: 20 * 1024 * 1024,
+          budget_bytes: 19_600_000,
+          video_kbps: 2400, audio_kbps: 128,
+          target_width: 1920, target_height: 1080, target_fps: 30,
+          downscaled: false, fps_reduced: false,
+        });
+      }
+      if (command === "compress_video_to_size") return Promise.resolve("C:/videos/clip_converted.mp4");
+      return Promise.resolve([]);
+    });
+
+    const { rerender } = render(
+      <SettingsProvider>
+        <VideoConverter />
+      </SettingsProvider>
+    );
+    await dropVideoFile("C:/videos/clip.mp4");
+    fireEvent.click(await screen.findByRole("button", { name: "Discord (20 MB)" }));
+    const toggle = await screen.findByRole("switch", { name: en.targetSize.maxQuality });
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "true"));
+    fireEvent.click(screen.getByRole("button", { name: en.converter.convert }));
+    await waitFor(() => {
+      expect(mocks.invoke).toHaveBeenCalledWith(
+        "compress_video_to_size",
+        expect.objectContaining({ copy_if_under: false, max_quality: true })
+      );
+    });
+
+    // Batch mode via external files
+    mocks.invoke.mockClear();
+    rerender(
+      <SettingsProvider>
+        <VideoConverter externalFiles={{ files: ["C:/videos/a.mp4", "C:/videos/b.mp4"], seq: 1 }} />
+      </SettingsProvider>
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Discord (20 MB)" }));
+    const batchToggle = await screen.findByRole("switch", { name: en.targetSize.maxQuality });
+    fireEvent.click(batchToggle);
+    expect(batchToggle).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(await screen.findByRole("button", { name: `${en.converter.convert} (2)` }));
+    await waitFor(() => {
+      expect(mocks.invoke).toHaveBeenCalledWith(
+        "compress_video_batch_to_size",
+        expect.objectContaining({ copy_if_under: true, max_quality: false })
+      );
+    });
+  });
+
   it("provides all required new i18n keys in fr, en, es, de, and pt locales", () => {
     const locales = [fr, en, es, de, pt];
     for (const loc of locales) {
@@ -677,7 +971,15 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
       expect(loc.targetSize.alreadyUnder).toBeTruthy();
       expect(loc.targetSize.copyAsIs).toBeTruthy();
       expect(loc.targetSize.tooSmall).toBeTruthy();
+      expect(loc.targetSize.h265Warning).toBeTruthy();
+      expect(loc.targetSize.maxQuality).toBeTruthy();
+      expect(loc.targetSize.maxQualityHint).toBeTruthy();
+      expect(loc.targetSize.h265Warning.trim().length).toBeGreaterThan(0);
+      expect(loc.targetSize.maxQuality.trim().length).toBeGreaterThan(0);
+      expect(loc.targetSize.maxQualityHint.trim().length).toBeGreaterThan(0);
+      expect(loc.settings.targetSizeMaxQuality.trim().length).toBeGreaterThan(0);
       expect(loc.settings.targetSizePresets).toBeTruthy();
+      expect(loc.settings.targetSizeMaxQuality).toBeTruthy();
       expect(loc.settings.contextMenu).toBeTruthy();
       expect(loc.settings.contextMenuHint).toBeTruthy();
       expect(loc.settings.thirdPartyLicenses).toBeTruthy();
