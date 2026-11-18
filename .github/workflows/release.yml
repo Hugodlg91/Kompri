@@ -201,9 +201,9 @@ jobs:
           "$FFPROBE_BIN" -v error -show_format -show_streams "$SMOKE_MP4"
           rm -f "$SMOKE_MP4"
 
-          # Max quality chain (same order as the app): denoise -> scale -> fps,
+          # Max quality chain (same order as the app): fps -> denoise -> scale,
           # encoded with -preset slow. 640x360@60 -> 320x180@30.
-          MQ_CHAIN="${MQ_DENOISE},scale=320:180,fps=30"
+          MQ_CHAIN="fps=30,${MQ_DENOISE},scale=320:180"
           for pair in "libx264:$SMOKE_MQ_X264" "libx265:$SMOKE_MQ_X265"; do
             codec="${pair%%:*}"
             out="${pair#*:}"

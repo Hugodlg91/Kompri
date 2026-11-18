@@ -2,7 +2,11 @@
 
 Checks, with objective metrics, that the **Max quality** option of the target-size
 mode (`-preset slow` + light `hqdn3d` denoise before scaling; **no sharpening**, see
-"Why there is no unsharp" below) never scores below the standard mode on the same size budget.
+"Why there is no unsharp" below) does not score below the standard mode on the same size
+budget. That is the goal, with one documented exception: on the 10 s clip SSIM is 0.00012
+lower (about 2x the run-to-run noise), while VMAF is equal and PSNR is higher. The measured
+gain comes mainly from `-preset slow`; the light `hqdn3d` denoise is neutral on these
+synthetic clips (no measurable gain or loss within noise).
 
 Everything uses the app's own code: `src-tauri/examples/target_size_bench.rs` links
 `kompri_lib::target_size` and calls
@@ -97,8 +101,9 @@ film grain (`noise alls=6 allf=t+u`). Source bitrate is ~21 Mbps (the 60 s clip 
 160,997,966 B). `mandelbrot` was rejected: ~40x slower than real time at useful sizes.
 
 At Discord 20 MB the plans are: 10 s and 60 s keep 1920x1080@60 (no scale, no fps
-change, so only `hqdn3d` + `-preset slow` differ); the 180 s clip drops to 1280x720@30,
-which exercises the downscale path.
+change, so only `hqdn3d` + `-preset slow` differ; they are unaffected by the filter-order
+change below); the 180 s clip drops to 1280x720@30, which exercises the downscale and fps
+paths.
 
 ## Quality measurement
 
@@ -136,8 +141,17 @@ planned size/fps.
 | 60 s 1080p60 | h264 | max | 19,133,430 | 76.64 | 62.99 | 0.98031 | 28.92 | 31.4 | `hqdn3d` |
 | 60 s 1080p60 | h265 | standard | 18,378,895 | 92.50 | 80.30 | 0.98646 | 34.82 | 67.5 | 2437 kbps, 1080p60, no filter |
 | 60 s 1080p60 | h265 | max | 18,023,169 | 96.78 | 88.55 | 0.99050 | 38.50 | 185.2 | `hqdn3d` |
-| 180 s 1080p60 | h264 | standard | 19,214,680 | 53.71 | 39.87 | 0.97836 | 23.27 | 24.9 | 748 kbps, 720p30: `scale,fps` |
-| 180 s 1080p60 | h264 | max | 19,120,557 | 55.31 | 41.30 | 0.97874 | 23.35 | 96.7 | `hqdn3d,scale,fps` |
+| 180 s 1080p60 | h264 | standard | 19,214,680 | 53.71 | 39.87 | 0.97836 | 23.27 | 24.9 | 748 kbps, 720p30: `scale,fps` (old order) |
+| 180 s 1080p60 | h264 | max | 19,120,557 | 55.31 | 41.30 | 0.97874 | 23.35 | 96.7 | `hqdn3d,scale,fps` (old order) |
+| 180 s 1080p60 | h264 | standard | 19,201,073 | 53.71 | 40.15 | 0.97835 | 23.27 | 23.9 | `fps,scale` (shipped order, `-Tag fpsfirst`) |
+| 180 s 1080p60 | h264 | max | 19,163,096 | 55.30 | 41.37 | 0.97876 | 23.34 | 48.6 | `fps,hqdn3d,scale` (shipped order, `-Tag fpsfirst`) |
+
+**Filter order.** The chain is now `fps` (if the plan reduces fps) -> `hqdn3d` -> `scale` (if
+downscaled): dropping frames first means `hqdn3d` only runs on the 30 kept fps instead of 60,
+and denoise still runs before scaling. On the 180 s clip (the only one with an fps reduction)
+Max quality encode time fell from 96.7 s to 48.6 s (about 2.0x standard instead of 3.9x), and it
+is still >= standard on VMAF, SSIM and PSNR. The 10 s and 60 s clips have no fps reduction, so
+their results are unaffected.
 
 Max quality is >= standard on every clip and metric, **except SSIM on the 10 s clip
 (-0.00012)**. That gap comes from `-preset slow` itself (no filter: medium 0.99767 vs slow

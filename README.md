@@ -73,7 +73,7 @@ MediaForge was renamed **Kompri** in v1.2.2. Your settings and conversion histor
   - Built-in presets for **Discord (20 MB)**, **WhatsApp (16 MB)**, **Gmail (25 MB)**, plus **Custom MB** (default preset sizes are customizable in Settings)
   - **2-Pass H.264 / H.265 encoding** with a **95% container safety budget** (`1 MB = 1,000,000 B`) so output files strictly stay under platform upload limits
   - **H.264 is the default codec.** H.265 gives better quality at the same size, but some recipients won't be able to play it. Choosing H.265 shows a short, non-blocking warning.
-  - **"Max quality (slower)"** (off by default): a switch in the Video converter, with a default in Settings. It uses the x264/x265 `slow` preset instead of `medium` and a light `hqdn3d` denoise before resizing. The target bitrate, the size check and the -10% retry are unchanged. It takes longer to encode (about 1.4× to 4× in our measurements). From the CLI, add `--max-quality` (see below). Without the flag, the Settings default applies.
+  - **"Max quality (slower)"** (off by default): a switch in the Video converter, with a default in Settings. It uses the x264/x265 `slow` preset instead of `medium`, plus a light `hqdn3d` denoise before resizing. In our measurements the quality gain comes mainly from the `slow` preset; the light denoise was neutral on our synthetic test clips (no measurable gain or loss). The target bitrate, the size check and the -10% retry are unchanged. It takes longer to encode (about 1.4× to 2.7× in our measurements). From the CLI, add `--max-quality` (see below). Without the flag, the Settings default applies.
   - **Automatic resolution & FPS downscaling** (orientation-aware for both landscape and 9:16 portrait videos) with live pre-conversion quality/resolution estimate
   - Automatic **-10% bitrate retry** if an encode ever exceeds the target size, and instant **copy/remux** when the source file is already below the target
 - Single file or batch conversion with real-time progress (`Pass 1/2` & `Pass 2/2`) and cancel support
@@ -102,6 +102,9 @@ Kompri.exe --action compress --preset discord -- "C:\Videos\clip.mp4"
 
 # Compress with Max quality (slow preset + light denoise); without the flag, the Settings default applies
 Kompri.exe --action compress --preset discord --max-quality -- "C:\Videos\clip.mp4"
+
+# Force it off when the Settings default is on
+Kompri.exe --action compress --preset discord --max-quality=false -- "C:\Videos\clip.mp4"
 
 # Convert media file(s) directly to a target format (mp4 | mp3 | jpg | png | webp)
 Kompri.exe --action convert --to mp4 -- "C:\Videos\clip.mov"
