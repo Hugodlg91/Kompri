@@ -47,7 +47,7 @@ impl MenuLabels {
 
         match code {
             "fr" => Self {
-                compress_discord: "Compresser pour Discord (10 Mo)",
+                compress_discord: "Compresser pour Discord (20 Mo)",
                 compress_whatsapp: "Compresser pour WhatsApp (16 Mo)",
                 convert_mp4: "Convertir en MP4",
                 convert_mp3: "Convertir en MP3",
@@ -57,7 +57,7 @@ impl MenuLabels {
                 open_in_app: "Ouvrir dans Kompri…",
             },
             "es" => Self {
-                compress_discord: "Comprimir para Discord (10 MB)",
+                compress_discord: "Comprimir para Discord (20 MB)",
                 compress_whatsapp: "Comprimir para WhatsApp (16 MB)",
                 convert_mp4: "Convertir a MP4",
                 convert_mp3: "Convertir a MP3",
@@ -67,7 +67,7 @@ impl MenuLabels {
                 open_in_app: "Abrir en Kompri…",
             },
             "de" => Self {
-                compress_discord: "Für Discord komprimieren (10 MB)",
+                compress_discord: "Für Discord komprimieren (20 MB)",
                 compress_whatsapp: "Für WhatsApp komprimieren (16 MB)",
                 convert_mp4: "In MP4 konvertieren",
                 convert_mp3: "In MP3 konvertieren",
@@ -77,7 +77,7 @@ impl MenuLabels {
                 open_in_app: "In Kompri öffnen…",
             },
             "pt" => Self {
-                compress_discord: "Comprimir para Discord (10 MB)",
+                compress_discord: "Comprimir para Discord (20 MB)",
                 compress_whatsapp: "Comprimir para WhatsApp (16 MB)",
                 convert_mp4: "Converter para MP4",
                 convert_mp3: "Converter para MP3",
@@ -87,7 +87,7 @@ impl MenuLabels {
                 open_in_app: "Abrir no Kompri…",
             },
             _ => Self {
-                compress_discord: "Compress for Discord (10 MB)",
+                compress_discord: "Compress for Discord (20 MB)",
                 compress_whatsapp: "Compress for WhatsApp (16 MB)",
                 convert_mp4: "Convert to MP4",
                 convert_mp3: "Convert to MP3",
@@ -512,7 +512,7 @@ mod tests {
     #[test]
     fn test_menu_labels_all_languages() {
         let fr = MenuLabels::for_lang("fr");
-        assert_eq!(fr.compress_discord, "Compresser pour Discord (10 Mo)");
+        assert_eq!(fr.compress_discord, "Compresser pour Discord (20 Mo)");
         assert_eq!(fr.compress_whatsapp, "Compresser pour WhatsApp (16 Mo)");
         assert_eq!(fr.convert_mp4, "Convertir en MP4");
         assert_eq!(fr.convert_mp3, "Convertir en MP3");
@@ -522,7 +522,7 @@ mod tests {
         assert_eq!(fr.open_in_app, "Ouvrir dans Kompri…");
 
         let en = MenuLabels::for_lang("en");
-        assert_eq!(en.compress_discord, "Compress for Discord (10 MB)");
+        assert_eq!(en.compress_discord, "Compress for Discord (20 MB)");
         assert_eq!(en.compress_whatsapp, "Compress for WhatsApp (16 MB)");
         assert_eq!(en.convert_mp4, "Convert to MP4");
         assert_eq!(en.convert_mp3, "Convert to MP3");
@@ -532,7 +532,7 @@ mod tests {
         assert_eq!(en.open_in_app, "Open in Kompri…");
 
         let es = MenuLabels::for_lang("es");
-        assert_eq!(es.compress_discord, "Comprimir para Discord (10 MB)");
+        assert_eq!(es.compress_discord, "Comprimir para Discord (20 MB)");
         assert_eq!(es.compress_whatsapp, "Comprimir para WhatsApp (16 MB)");
         assert_eq!(es.convert_mp4, "Convertir a MP4");
         assert_eq!(es.convert_mp3, "Convertir a MP3");
@@ -542,7 +542,7 @@ mod tests {
         assert_eq!(es.open_in_app, "Abrir en Kompri…");
 
         let de = MenuLabels::for_lang("de");
-        assert_eq!(de.compress_discord, "Für Discord komprimieren (10 MB)");
+        assert_eq!(de.compress_discord, "Für Discord komprimieren (20 MB)");
         assert_eq!(de.compress_whatsapp, "Für WhatsApp komprimieren (16 MB)");
         assert_eq!(de.convert_mp4, "In MP4 konvertieren");
         assert_eq!(de.convert_mp3, "In MP3 konvertieren");
@@ -552,7 +552,7 @@ mod tests {
         assert_eq!(de.open_in_app, "In Kompri öffnen…");
 
         let pt = MenuLabels::for_lang("pt");
-        assert_eq!(pt.compress_discord, "Comprimir para Discord (10 MB)");
+        assert_eq!(pt.compress_discord, "Comprimir para Discord (20 MB)");
         assert_eq!(pt.compress_whatsapp, "Comprimir para WhatsApp (16 MB)");
         assert_eq!(pt.convert_mp4, "Converter para MP4");
         assert_eq!(pt.convert_mp3, "Converter para MP3");
@@ -632,7 +632,7 @@ mod tests {
             let discord_item = mp4_root.open_subkey(r"shell\01_discord").unwrap();
             assert_eq!(
                 read_val(&discord_item, "MUIVerb"),
-                "Compresser pour Discord (10 Mo)"
+                "Compresser pour Discord (20 Mo)"
             );
             let discord_cmd = discord_item.open_subkey("command").unwrap();
             assert_eq!(
@@ -723,7 +723,7 @@ mod tests {
             let en_discord = hkcu
                 .open_subkey(format!(r"{TEST_PREFIX}\.mkv\shell\Kompri\shell\01_discord"))
                 .unwrap();
-            assert_eq!(read_val(&en_discord, "MUIVerb"), "Compress for Discord (10 MB)");
+            assert_eq!(read_val(&en_discord, "MUIVerb"), "Compress for Discord (20 MB)");
 
             // Unregister and verify all 18 extension keys are removed
             unregister_context_menu_at(TEST_PREFIX).unwrap();
@@ -975,7 +975,7 @@ mod tests {
                     r"{TEST_RENAME_PREFIX}\.mp4\shell\Kompri\shell\01_discord"
                 ))
                 .unwrap();
-            assert_eq!(read_val(&discord, "MUIVerb"), "Compresser pour Discord (10 Mo)");
+            assert_eq!(read_val(&discord, "MUIVerb"), "Compresser pour Discord (20 Mo)");
 
             // 5. A second startup is idempotent.
             assert!(migrate_context_menu_at(TEST_RENAME_PREFIX, new_exe, true, "fr").unwrap());
