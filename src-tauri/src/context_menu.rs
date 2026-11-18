@@ -1,7 +1,11 @@
 //! Windows Explorer cascading context menu registration under `HKEY_CURRENT_USER`.
 //!
-//! Uses `HKCU\Software\Classes\SystemFileAssociations\<ext>\shell\MediaForge`
+//! Uses `HKCU\Software\Classes\SystemFileAssociations\<ext>\shell\Kompri`
 //! so no administrator privileges are required.
+//!
+//! Releases up to v1.2.1 shipped as **MediaForge** and registered the cascade under
+//! `shell\MediaForge`. Those legacy keys are removed whenever the Kompri menu is
+//! (re-)registered or unregistered, so an upgraded install never shows both menus.
 
 /// Supported video file extensions registered in Windows Explorer.
 pub const VIDEO_EXTENSIONS: &[&str] = &[".mp4", ".mkv", ".avi", ".mov", ".webm"];
@@ -14,6 +18,12 @@ pub const IMAGE_EXTENSIONS: &[&str] = &[".png", ".jpg", ".jpeg", ".webp", ".bmp"
 
 #[cfg(target_os = "windows")]
 const SYSTEM_FILE_ASSOC_PREFIX: &str = r"Software\Classes\SystemFileAssociations";
+
+/// Registry key name (and cascade title) of the Explorer submenu.
+pub const MENU_KEY_NAME: &str = "Kompri";
+
+/// Submenu key names written by earlier releases (MediaForge <= v1.2.1), removed on migration.
+pub const LEGACY_MENU_KEY_NAMES: &[&str] = &["MediaForge"];
 
 /// Localized context menu labels for the supported UI languages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,7 +54,7 @@ impl MenuLabels {
                 convert_jpg: "Convertir en JPG",
                 convert_png: "Convertir en PNG",
                 convert_webp: "Convertir en WebP",
-                open_in_app: "Ouvrir dans MediaForge…",
+                open_in_app: "Ouvrir dans Kompri…",
             },
             "es" => Self {
                 compress_discord: "Comprimir para Discord (10 MB)",
@@ -54,7 +64,7 @@ impl MenuLabels {
                 convert_jpg: "Convertir a JPG",
                 convert_png: "Convertir a PNG",
                 convert_webp: "Convertir a WebP",
-                open_in_app: "Abrir en MediaForge…",
+                open_in_app: "Abrir en Kompri…",
             },
             "de" => Self {
                 compress_discord: "Für Discord komprimieren (10 MB)",
@@ -64,7 +74,7 @@ impl MenuLabels {
                 convert_jpg: "In JPG konvertieren",
                 convert_png: "In PNG konvertieren",
                 convert_webp: "In WebP konvertieren",
-                open_in_app: "In MediaForge öffnen…",
+                open_in_app: "In Kompri öffnen…",
             },
             "pt" => Self {
                 compress_discord: "Comprimir para Discord (10 MB)",
@@ -74,7 +84,7 @@ impl MenuLabels {
                 convert_jpg: "Converter para JPG",
                 convert_png: "Converter para PNG",
                 convert_webp: "Converter para WebP",
-                open_in_app: "Abrir no MediaForge…",
+                open_in_app: "Abrir no Kompri…",
             },
             _ => Self {
                 compress_discord: "Compress for Discord (10 MB)",
@@ -84,7 +94,7 @@ impl MenuLabels {
                 convert_jpg: "Convert to JPG",
                 convert_png: "Convert to PNG",
                 convert_webp: "Convert to WebP",
-                open_in_app: "Open in MediaForge…",
+                open_in_app: "Open in Kompri…",
             },
         }
     }
@@ -136,7 +146,7 @@ pub fn unregister_context_menu() -> Result<bool, String> {
     }
 }
 
-/// Checks whether the MediaForge context menu is currently registered under `HKCU`.
+/// Checks whether the Kompri context menu is currently registered under `HKCU`.
 pub fn is_context_menu_registered() -> Result<bool, String> {
     #[cfg(target_os = "windows")]
     {
@@ -168,8 +178,9 @@ pub fn sync_context_menu_on_startup(enabled_in_settings: bool, lang: &str) -> Re
 /// Migrates or refreshes Explorer context menus under `HKCU\<base_prefix>` on startup.
 ///
 /// Re-registers the menu with `exe_path` and `lang` if `enabled_in_settings` is `true` or
-/// if entries are already registered under `base_prefix` (e.g. upgrading from v1.2.0 `tauri-app.exe`
-/// to v1.2.1 `MediaForge.exe`).
+/// if entries are already registered under `base_prefix`, either as Kompri or under a legacy
+/// name (e.g. upgrading from MediaForge v1.2.1 `MediaForge.exe` to Kompri v1.2.2 `Kompri.exe`).
+/// Re-registering removes the legacy `shell\MediaForge` keys.
 #[cfg(target_os = "windows")]
 pub fn migrate_context_menu_at(
     base_prefix: &str,
@@ -177,7 +188,8 @@ pub fn migrate_context_menu_at(
     enabled_in_settings: bool,
     lang: &str,
 ) -> Result<bool, String> {
-    let registered = is_context_menu_registered_at(base_prefix)?;
+    let registered = is_context_menu_registered_at(base_prefix)?
+        || windows_impl::is_legacy_registered_at(base_prefix)?;
     if enabled_in_settings || registered {
         register_context_menu_at(base_prefix, exe_path, lang)?;
         Ok(true)
@@ -186,7 +198,8 @@ pub fn migrate_context_menu_at(
     }
 }
 
-/// Registers cascading Explorer context menus under `HKCU\<base_prefix>\<ext>\shell\MediaForge`.
+/// Registers cascading Explorer context menus under `HKCU\<base_prefix>\<ext>\shell\Kompri`
+/// and removes any legacy `shell\MediaForge` keys.
 #[cfg(target_os = "windows")]
 pub fn register_context_menu_at(
     base_prefix: &str,
@@ -196,13 +209,14 @@ pub fn register_context_menu_at(
     windows_impl::register_at(base_prefix, exe_path, lang)
 }
 
-/// Removes cascading Explorer context menus under `HKCU\<base_prefix>\<ext>\shell\MediaForge`.
+/// Removes cascading Explorer context menus under `HKCU\<base_prefix>\<ext>\shell\Kompri`
+/// (and any legacy `shell\MediaForge` keys).
 #[cfg(target_os = "windows")]
 pub fn unregister_context_menu_at(base_prefix: &str) -> Result<(), String> {
     windows_impl::unregister_at(base_prefix)
 }
 
-/// Returns `true` if any supported extension has `HKCU\<base_prefix>\<ext>\shell\MediaForge`.
+/// Returns `true` if any supported extension has `HKCU\<base_prefix>\<ext>\shell\Kompri`.
 #[cfg(target_os = "windows")]
 pub fn is_context_menu_registered_at(base_prefix: &str) -> Result<bool, String> {
     windows_impl::is_registered_at(base_prefix)
@@ -210,7 +224,10 @@ pub fn is_context_menu_registered_at(base_prefix: &str) -> Result<bool, String> 
 
 #[cfg(target_os = "windows")]
 mod windows_impl {
-    use super::{MenuLabels, AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS};
+    use super::{
+        MenuLabels, AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, LEGACY_MENU_KEY_NAMES, MENU_KEY_NAME,
+        VIDEO_EXTENSIONS,
+    };
     use std::io::ErrorKind;
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
@@ -270,7 +287,48 @@ mod windows_impl {
     }
 
     fn menu_key_path(prefix: &str, ext: &str) -> String {
-        format!(r"{prefix}\{ext}\shell\MediaForge")
+        named_key_path(prefix, ext, MENU_KEY_NAME)
+    }
+
+    fn named_key_path(prefix: &str, ext: &str, name: &str) -> String {
+        format!(r"{prefix}\{ext}\shell\{name}")
+    }
+
+    fn delete_tree_if_present(hkcu: &RegKey, key_path: &str) -> Result<(), String> {
+        match hkcu.delete_subkey_all(key_path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(format!("Failed to remove registry key '{key_path}': {e}")),
+        }
+    }
+
+    /// Removes the submenus written by earlier releases (`shell\MediaForge`).
+    fn remove_legacy_at(hkcu: &RegKey, prefix: &str) -> Result<(), String> {
+        for name in LEGACY_MENU_KEY_NAMES {
+            for ext in all_extensions() {
+                delete_tree_if_present(hkcu, &named_key_path(prefix, ext, name))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns `true` if any supported extension still has a legacy (`shell\MediaForge`) submenu.
+    pub fn is_legacy_registered_at(base_prefix: &str) -> Result<bool, String> {
+        let prefix = validate_prefix(base_prefix)?;
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        for name in LEGACY_MENU_KEY_NAMES {
+            for ext in all_extensions() {
+                let key_path = named_key_path(prefix, ext, name);
+                match hkcu.open_subkey(&key_path) {
+                    Ok(_) => return Ok(true),
+                    Err(e) if e.kind() == ErrorKind::NotFound => {}
+                    Err(e) => {
+                        return Err(format!("Failed to inspect registry key '{key_path}': {e}"));
+                    }
+                }
+            }
+        }
+        Ok(false)
     }
 
     fn write_extension_menu(
@@ -299,7 +357,7 @@ mod windows_impl {
 
         let icon_value = format!("\"{exe_path}\",0");
         root_key
-            .set_value("MUIVerb", &"MediaForge")
+            .set_value("MUIVerb", &MENU_KEY_NAME)
             .map_err(|e| format!("Failed to set MUIVerb on '{root_path}': {e}"))?;
         root_key
             .set_value("Icon", &icon_value)
@@ -341,6 +399,8 @@ mod windows_impl {
         let exe_path = validate_exe_path(exe_path)?;
         let labels = MenuLabels::for_lang(lang);
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+
+        remove_legacy_at(&hkcu, prefix)?;
 
         let video_items = [
             SubCommandSpec {
@@ -421,17 +481,9 @@ mod windows_impl {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
 
         for ext in all_extensions() {
-            let key_path = menu_key_path(prefix, ext);
-            match hkcu.delete_subkey_all(&key_path) {
-                Ok(()) => {}
-                Err(e) if e.kind() == ErrorKind::NotFound => {}
-                Err(e) => {
-                    return Err(format!("Failed to remove registry key '{key_path}': {e}"));
-                }
-            }
+            delete_tree_if_present(&hkcu, &menu_key_path(prefix, ext))?;
         }
-
-        Ok(())
+        remove_legacy_at(&hkcu, prefix)
     }
 
     pub fn is_registered_at(base_prefix: &str) -> Result<bool, String> {
@@ -467,7 +519,7 @@ mod tests {
         assert_eq!(fr.convert_jpg, "Convertir en JPG");
         assert_eq!(fr.convert_png, "Convertir en PNG");
         assert_eq!(fr.convert_webp, "Convertir en WebP");
-        assert_eq!(fr.open_in_app, "Ouvrir dans MediaForge…");
+        assert_eq!(fr.open_in_app, "Ouvrir dans Kompri…");
 
         let en = MenuLabels::for_lang("en");
         assert_eq!(en.compress_discord, "Compress for Discord (10 MB)");
@@ -477,7 +529,7 @@ mod tests {
         assert_eq!(en.convert_jpg, "Convert to JPG");
         assert_eq!(en.convert_png, "Convert to PNG");
         assert_eq!(en.convert_webp, "Convert to WebP");
-        assert_eq!(en.open_in_app, "Open in MediaForge…");
+        assert_eq!(en.open_in_app, "Open in Kompri…");
 
         let es = MenuLabels::for_lang("es");
         assert_eq!(es.compress_discord, "Comprimir para Discord (10 MB)");
@@ -487,7 +539,7 @@ mod tests {
         assert_eq!(es.convert_jpg, "Convertir a JPG");
         assert_eq!(es.convert_png, "Convertir a PNG");
         assert_eq!(es.convert_webp, "Convertir a WebP");
-        assert_eq!(es.open_in_app, "Abrir en MediaForge…");
+        assert_eq!(es.open_in_app, "Abrir en Kompri…");
 
         let de = MenuLabels::for_lang("de");
         assert_eq!(de.compress_discord, "Für Discord komprimieren (10 MB)");
@@ -497,7 +549,7 @@ mod tests {
         assert_eq!(de.convert_jpg, "In JPG konvertieren");
         assert_eq!(de.convert_png, "In PNG konvertieren");
         assert_eq!(de.convert_webp, "In WebP konvertieren");
-        assert_eq!(de.open_in_app, "In MediaForge öffnen…");
+        assert_eq!(de.open_in_app, "In Kompri öffnen…");
 
         let pt = MenuLabels::for_lang("pt");
         assert_eq!(pt.compress_discord, "Comprimir para Discord (10 MB)");
@@ -507,7 +559,7 @@ mod tests {
         assert_eq!(pt.convert_jpg, "Converter para JPG");
         assert_eq!(pt.convert_png, "Converter para PNG");
         assert_eq!(pt.convert_webp, "Converter para WebP");
-        assert_eq!(pt.open_in_app, "Abrir no MediaForge…");
+        assert_eq!(pt.open_in_app, "Abrir no Kompri…");
 
         // Fallback and locale variants
         assert_eq!(MenuLabels::for_lang("fr-FR"), fr);
@@ -528,10 +580,14 @@ mod tests {
         use winreg::enums::HKEY_CURRENT_USER;
         use winreg::RegKey;
 
-        const TEST_PREFIX: &str = r"Software\MediaForge_UnitTest_ContextMenu";
-        const TEST_MIGRATION_PREFIX: &str = r"Software\MediaForge_UnitTest_ContextMenu_Migration";
+        const TEST_PREFIX: &str = r"Software\Kompri_UnitTest_ContextMenu";
+        const TEST_MIGRATION_PREFIX: &str = r"Software\Kompri_UnitTest_ContextMenu_Migration";
         const TEST_MIGRATION_EDGE_PREFIX: &str =
-            r"Software\MediaForge_UnitTest_ContextMenu_MigrationEdge";
+            r"Software\Kompri_UnitTest_ContextMenu_MigrationEdge";
+        const TEST_RENAME_PREFIX: &str =
+            r"Software\Kompri_UnitTest_ContextMenu_RenameFromMediaForge";
+        const TEST_RENAME_DISABLE_PREFIX: &str =
+            r"Software\Kompri_UnitTest_ContextMenu_RenameDisable";
 
         struct TestRegistryGuard(&'static str);
 
@@ -558,7 +614,7 @@ mod tests {
         fn test_register_and_unregister_context_menu_hkcu() {
             let _guard = TestRegistryGuard::new(TEST_PREFIX);
             let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-            let exe = r"C:\Program Files\MediaForge\MediaForge.exe";
+            let exe = r"C:\Program Files\Kompri\Kompri.exe";
 
             assert!(!is_context_menu_registered_at(TEST_PREFIX).unwrap());
 
@@ -567,9 +623,9 @@ mod tests {
 
             // Verify video root & subcommands
             let mp4_root = hkcu
-                .open_subkey(format!(r"{TEST_PREFIX}\.mp4\shell\MediaForge"))
+                .open_subkey(format!(r"{TEST_PREFIX}\.mp4\shell\Kompri"))
                 .unwrap();
-            assert_eq!(read_val(&mp4_root, "MUIVerb"), "MediaForge");
+            assert_eq!(read_val(&mp4_root, "MUIVerb"), "Kompri");
             assert_eq!(read_val(&mp4_root, "Icon"), format!("\"{exe}\",0"));
             assert_eq!(read_val(&mp4_root, "SubCommands"), "");
 
@@ -608,7 +664,7 @@ mod tests {
                 .chain(AUDIO_EXTENSIONS.iter())
                 .chain(IMAGE_EXTENSIONS.iter())
             {
-                let path = format!(r"{TEST_PREFIX}\{ext}\shell\MediaForge");
+                let path = format!(r"{TEST_PREFIX}\{ext}\shell\Kompri");
                 assert!(
                     hkcu.open_subkey(&path).is_ok(),
                     "expected registry key: {path}"
@@ -617,7 +673,7 @@ mod tests {
 
             // Verify audio commands
             let mp3_root = hkcu
-                .open_subkey(format!(r"{TEST_PREFIX}\.mp3\shell\MediaForge"))
+                .open_subkey(format!(r"{TEST_PREFIX}\.mp3\shell\Kompri"))
                 .unwrap();
             let mp3_item = mp3_root.open_subkey(r"shell\01_mp3").unwrap();
             assert_eq!(read_val(&mp3_item, "MUIVerb"), "Convertir en MP3");
@@ -635,7 +691,7 @@ mod tests {
 
             // Verify image commands
             let png_root = hkcu
-                .open_subkey(format!(r"{TEST_PREFIX}\.png\shell\MediaForge"))
+                .open_subkey(format!(r"{TEST_PREFIX}\.png\shell\Kompri"))
                 .unwrap();
             let jpg_item = png_root.open_subkey(r"shell\01_jpg").unwrap();
             assert_eq!(read_val(&jpg_item, "MUIVerb"), "Convertir en JPG");
@@ -665,7 +721,7 @@ mod tests {
             // Re-register with English and confirm label update
             register_context_menu_at(TEST_PREFIX, exe, "en").unwrap();
             let en_discord = hkcu
-                .open_subkey(format!(r"{TEST_PREFIX}\.mkv\shell\MediaForge\shell\01_discord"))
+                .open_subkey(format!(r"{TEST_PREFIX}\.mkv\shell\Kompri\shell\01_discord"))
                 .unwrap();
             assert_eq!(read_val(&en_discord, "MUIVerb"), "Compress for Discord (10 MB)");
 
@@ -678,7 +734,7 @@ mod tests {
                 .chain(AUDIO_EXTENSIONS.iter())
                 .chain(IMAGE_EXTENSIONS.iter())
             {
-                let path = format!(r"{TEST_PREFIX}\{ext}\shell\MediaForge");
+                let path = format!(r"{TEST_PREFIX}\{ext}\shell\Kompri");
                 let err = hkcu.open_subkey(&path).unwrap_err();
                 assert_eq!(err.kind(), ErrorKind::NotFound, "key remained: {path}");
             }
@@ -688,35 +744,35 @@ mod tests {
         fn test_register_rejects_invalid_inputs() {
             assert!(register_context_menu_at(TEST_PREFIX, "", "en").is_err());
             assert!(
-                register_context_menu_at(TEST_PREFIX, r#"C:\bad"path\MediaForge.exe"#, "en")
+                register_context_menu_at(TEST_PREFIX, r#"C:\bad"path\Kompri.exe"#, "en")
                     .is_err()
             );
             assert!(
-                register_context_menu_at(TEST_PREFIX, r"C:\%TEMP%\MediaForge.exe", "en").is_err()
+                register_context_menu_at(TEST_PREFIX, r"C:\%TEMP%\Kompri.exe", "en").is_err()
             );
             assert!(
-                register_context_menu_at(TEST_PREFIX, "C:\\bad\npath\\MediaForge.exe", "en")
+                register_context_menu_at(TEST_PREFIX, "C:\\bad\npath\\Kompri.exe", "en")
                     .is_err()
             );
             assert!(
-                register_context_menu_at(TEST_PREFIX, "C:\\bad\rpath\\MediaForge.exe", "en")
+                register_context_menu_at(TEST_PREFIX, "C:\\bad\rpath\\Kompri.exe", "en")
                     .is_err()
             );
-            assert!(register_context_menu_at("", r"C:\MediaForge.exe", "en").is_err());
+            assert!(register_context_menu_at("", r"C:\Kompri.exe", "en").is_err());
         }
 
         #[test]
-        fn test_upgrade_migration_from_v120_to_v121_updates_exe_path() {
+        fn test_startup_migration_refreshes_exe_path() {
             let _guard = TestRegistryGuard::new(TEST_MIGRATION_PREFIX);
             let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-            let old_exe = r"C:\Users\Test\AppData\Local\MediaForge\tauri-app.exe";
-            let new_exe = r"C:\Users\Test\AppData\Local\MediaForge\MediaForge.exe";
+            let old_exe = r"C:\Users\Test\AppData\Local\Kompri\old-build\Kompri.exe";
+            let new_exe = r"C:\Users\Test\AppData\Local\Kompri\Kompri.exe";
 
-            // 1. Simulate v1.2.0 installation registered with tauri-app.exe
+            // 1. Simulate a menu registered by a previous build at another path
             register_context_menu_at(TEST_MIGRATION_PREFIX, old_exe, "fr").unwrap();
             let old_discord_cmd = hkcu
                 .open_subkey(format!(
-                    r"{TEST_MIGRATION_PREFIX}\.mp4\shell\MediaForge\shell\01_discord\command"
+                    r"{TEST_MIGRATION_PREFIX}\.mp4\shell\Kompri\shell\01_discord\command"
                 ))
                 .unwrap();
             assert_eq!(
@@ -724,14 +780,14 @@ mod tests {
                 format!("\"{old_exe}\" --action compress --preset discord -- \"%1\"")
             );
 
-            // 2. Simulate v1.2.1 startup migration to MediaForge.exe
+            // 2. Simulate startup migration to the current Kompri.exe
             let migrated =
                 migrate_context_menu_at(TEST_MIGRATION_PREFIX, new_exe, true, "fr").unwrap();
             assert!(migrated);
 
-            // 3. Verify HKCU commands & icons now point to MediaForge.exe
+            // 3. Verify HKCU commands & icons now point to the current Kompri.exe
             let new_mp4_root = hkcu
-                .open_subkey(format!(r"{TEST_MIGRATION_PREFIX}\.mp4\shell\MediaForge"))
+                .open_subkey(format!(r"{TEST_MIGRATION_PREFIX}\.mp4\shell\Kompri"))
                 .unwrap();
             assert_eq!(read_val(&new_mp4_root, "Icon"), format!("\"{new_exe}\",0"));
 
@@ -745,7 +801,7 @@ mod tests {
 
             let new_jpg_cmd = hkcu
                 .open_subkey(format!(
-                    r"{TEST_MIGRATION_PREFIX}\.png\shell\MediaForge\shell\01_jpg\command"
+                    r"{TEST_MIGRATION_PREFIX}\.png\shell\Kompri\shell\01_jpg\command"
                 ))
                 .unwrap();
             assert_eq!(
@@ -758,8 +814,8 @@ mod tests {
         fn test_migration_respects_unregistered_disabled_and_registered_fallback() {
             let _guard = TestRegistryGuard::new(TEST_MIGRATION_EDGE_PREFIX);
             let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-            let old_exe = r"C:\Users\Test\AppData\Local\MediaForge\tauri-app.exe";
-            let new_exe = r"C:\Users\Test\AppData\Local\MediaForge\MediaForge.exe";
+            let old_exe = r"C:\Users\Test\AppData\Local\Kompri\old-build\Kompri.exe";
+            let new_exe = r"C:\Users\Test\AppData\Local\Kompri\Kompri.exe";
 
             // Unregistered + disabled in settings => no-op, returns false
             assert!(
@@ -774,13 +830,183 @@ mod tests {
             );
             let migrated_cmd = hkcu
                 .open_subkey(format!(
-                    r"{TEST_MIGRATION_EDGE_PREFIX}\.mp4\shell\MediaForge\shell\01_discord\command"
+                    r"{TEST_MIGRATION_EDGE_PREFIX}\.mp4\shell\Kompri\shell\01_discord\command"
                 ))
                 .unwrap();
             assert_eq!(
                 read_val(&migrated_cmd, ""),
                 format!("\"{new_exe}\" --action compress --preset discord -- \"%1\"")
             );
+        }
+        /// Writes the exact `shell\MediaForge` layout that MediaForge v1.2.1 registered.
+        fn write_mediaforge_121_menu(prefix: &str, exe: &str) {
+            type Item<'a> = (&'a str, &'a str, &'a str);
+            let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+            let video: &[Item] = &[
+                ("01_discord", "Compress for Discord (10 MB)", "--action compress --preset discord"),
+                ("02_whatsapp", "Compress for WhatsApp (16 MB)", "--action compress --preset whatsapp"),
+                ("03_mp4", "Convert to MP4", "--action convert --to mp4"),
+                ("99_open", "Open in MediaForge…", "--action open"),
+            ];
+            let audio: &[Item] = &[
+                ("01_mp3", "Convert to MP3", "--action convert --to mp3"),
+                ("99_open", "Open in MediaForge…", "--action open"),
+            ];
+            let image: &[Item] = &[
+                ("01_jpg", "Convert to JPG", "--action convert --to jpg"),
+                ("02_png", "Convert to PNG", "--action convert --to png"),
+                ("03_webp", "Convert to WebP", "--action convert --to webp"),
+                ("99_open", "Open in MediaForge…", "--action open"),
+            ];
+            let groups: [(&[&str], &[Item]); 3] = [
+                (VIDEO_EXTENSIONS, video),
+                (AUDIO_EXTENSIONS, audio),
+                (IMAGE_EXTENSIONS, image),
+            ];
+            for (exts, items) in groups {
+                for ext in exts {
+                    let (root, _) = hkcu
+                        .create_subkey(format!(r"{prefix}\{ext}\shell\MediaForge"))
+                        .unwrap();
+                    root.set_value("MUIVerb", &"MediaForge").unwrap();
+                    root.set_value("Icon", &format!("\"{exe}\",0")).unwrap();
+                    root.set_value("SubCommands", &"").unwrap();
+                    for (sub, label, args) in items {
+                        let (item, _) = root.create_subkey(format!(r"shell\{sub}")).unwrap();
+                        item.set_value("MUIVerb", label).unwrap();
+                        let (cmd, _) = item.create_subkey("command").unwrap();
+                        cmd.set_value("", &format!("\"{exe}\" {args} -- \"%1\""))
+                            .unwrap();
+                    }
+                }
+            }
+        }
+
+        /// Splits a registry `command` value the way Explorer does for our quoted format
+        /// and substitutes `%1`, so the result can be fed to the real CLI parser.
+        fn explorer_argv(command_line: &str, file: &str) -> Vec<String> {
+            let mut argv = Vec::new();
+            let mut cur = String::new();
+            let mut in_quotes = false;
+            for c in command_line.chars() {
+                match c {
+                    '"' => in_quotes = !in_quotes,
+                    ' ' if !in_quotes => {
+                        if !cur.is_empty() {
+                            argv.push(std::mem::take(&mut cur));
+                        }
+                    }
+                    _ => cur.push(c),
+                }
+            }
+            if !cur.is_empty() {
+                argv.push(cur);
+            }
+            argv.into_iter()
+                .map(|a| if a == "%1" { file.to_string() } else { a })
+                .collect()
+        }
+
+        #[test]
+        fn test_upgrade_from_mediaforge_121_leaves_only_working_kompri_keys() {
+            use crate::cli::{parse_cli_args, CliAction};
+
+            let _guard = TestRegistryGuard::new(TEST_RENAME_PREFIX);
+            let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+            let old_exe = r"C:\Users\Test\AppData\Local\MediaForge\MediaForge.exe";
+            let new_exe = r"C:\Users\Test\AppData\Local\Kompri\Kompri.exe";
+
+            // 1. MediaForge v1.2.1 is installed with the context menu enabled.
+            write_mediaforge_121_menu(TEST_RENAME_PREFIX, old_exe);
+            assert!(windows_impl::is_legacy_registered_at(TEST_RENAME_PREFIX).unwrap());
+            assert!(!is_context_menu_registered_at(TEST_RENAME_PREFIX).unwrap());
+
+            // 2. Kompri v1.2.2 starts for the first time (setting enabled, French UI).
+            assert!(migrate_context_menu_at(TEST_RENAME_PREFIX, new_exe, true, "fr").unwrap());
+
+            // 3. Only the Kompri keys remain, for all 18 extensions.
+            assert!(!windows_impl::is_legacy_registered_at(TEST_RENAME_PREFIX).unwrap());
+            for ext in VIDEO_EXTENSIONS
+                .iter()
+                .chain(AUDIO_EXTENSIONS.iter())
+                .chain(IMAGE_EXTENSIONS.iter())
+            {
+                let shell = hkcu
+                    .open_subkey(format!(r"{TEST_RENAME_PREFIX}\{ext}\shell"))
+                    .unwrap();
+                let names: Vec<String> = shell.enum_keys().map(|k| k.unwrap()).collect();
+                assert_eq!(names, vec!["Kompri".to_string()], "unexpected verbs on {ext}");
+
+                let root = shell.open_subkey("Kompri").unwrap();
+                assert_eq!(read_val(&root, "MUIVerb"), "Kompri");
+                assert_eq!(read_val(&root, "Icon"), format!("\"{new_exe}\",0"));
+                let open = root.open_subkey(r"shell\99_open").unwrap();
+                assert_eq!(read_val(&open, "MUIVerb"), "Ouvrir dans Kompri…");
+            }
+
+            // 4. The Kompri commands work: they launch Kompri.exe and the real CLI parser
+            //    turns each of them into the expected request.
+            let file = r"C:\Users\Test\Videos\my clip.mp4";
+            let cases = [
+                (".mp4", "01_discord", CliAction::Compress { preset: "discord".into() }),
+                (".mov", "02_whatsapp", CliAction::Compress { preset: "whatsapp".into() }),
+                (".mkv", "03_mp4", CliAction::Convert { to: "mp4".into() }),
+                (".flac", "01_mp3", CliAction::Convert { to: "mp3".into() }),
+                (".png", "03_webp", CliAction::Convert { to: "webp".into() }),
+                (".jpg", "99_open", CliAction::Open),
+            ];
+            for (ext, sub, expected) in cases {
+                let cmd = hkcu
+                    .open_subkey(format!(
+                        r"{TEST_RENAME_PREFIX}\{ext}\shell\Kompri\shell\{sub}\command"
+                    ))
+                    .unwrap();
+                let line = read_val(&cmd, "");
+                let argv = explorer_argv(&line, file);
+                assert_eq!(argv[0], new_exe, "command must launch Kompri.exe: {line}");
+                let req = parse_cli_args(&argv)
+                    .unwrap_or_else(|| panic!("CLI rejected registry command: {line}"));
+                assert_eq!(req.action, expected, "{ext} {sub}");
+                assert_eq!(req.files, vec![file.to_string()]);
+            }
+            let discord = hkcu
+                .open_subkey(format!(
+                    r"{TEST_RENAME_PREFIX}\.mp4\shell\Kompri\shell\01_discord"
+                ))
+                .unwrap();
+            assert_eq!(read_val(&discord, "MUIVerb"), "Compresser pour Discord (10 Mo)");
+
+            // 5. A second startup is idempotent.
+            assert!(migrate_context_menu_at(TEST_RENAME_PREFIX, new_exe, true, "fr").unwrap());
+            assert!(is_context_menu_registered_at(TEST_RENAME_PREFIX).unwrap());
+            assert!(!windows_impl::is_legacy_registered_at(TEST_RENAME_PREFIX).unwrap());
+        }
+
+        #[test]
+        fn test_legacy_mediaforge_keys_alone_trigger_migration_and_unregister_removes_them() {
+            let _guard = TestRegistryGuard::new(TEST_RENAME_DISABLE_PREFIX);
+            let old_exe = r"C:\Users\Test\AppData\Local\MediaForge\MediaForge.exe";
+            let new_exe = r"C:\Users\Test\AppData\Local\Kompri\Kompri.exe";
+
+            // Setting missing/false but the MediaForge menu is present => still migrated.
+            write_mediaforge_121_menu(TEST_RENAME_DISABLE_PREFIX, old_exe);
+            assert!(
+                migrate_context_menu_at(TEST_RENAME_DISABLE_PREFIX, new_exe, false, "en").unwrap()
+            );
+            assert!(is_context_menu_registered_at(TEST_RENAME_DISABLE_PREFIX).unwrap());
+            assert!(!windows_impl::is_legacy_registered_at(TEST_RENAME_DISABLE_PREFIX).unwrap());
+
+            // Disabling the integration removes Kompri keys and any legacy leftovers.
+            write_mediaforge_121_menu(TEST_RENAME_DISABLE_PREFIX, old_exe);
+            unregister_context_menu_at(TEST_RENAME_DISABLE_PREFIX).unwrap();
+            assert!(!is_context_menu_registered_at(TEST_RENAME_DISABLE_PREFIX).unwrap());
+            assert!(!windows_impl::is_legacy_registered_at(TEST_RENAME_DISABLE_PREFIX).unwrap());
+
+            // Nothing registered and disabled => no-op.
+            assert!(
+                !migrate_context_menu_at(TEST_RENAME_DISABLE_PREFIX, new_exe, false, "en").unwrap()
+            );
+            assert!(!is_context_menu_registered_at(TEST_RENAME_DISABLE_PREFIX).unwrap());
         }
     }
 }
