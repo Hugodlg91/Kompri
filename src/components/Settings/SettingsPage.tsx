@@ -19,9 +19,9 @@ const VIDEO_FORMATS = ["mp4", "mkv", "avi", "mov", "webm"];
 const AUDIO_FORMATS = ["mp3", "flac", "wav", "ogg", "aac", "m4a"];
 const IMAGE_FORMATS = ["png", "jpg", "webp", "bmp", "tiff"];
 
-const FALLBACK_THIRD_PARTY_NOTICES = `Third-Party Software Notices — MediaForge
+const FALLBACK_THIRD_PARTY_NOTICES = `Third-Party Software Notices — Kompri
 
-MediaForge bundles unmodified static binaries of FFmpeg and FFprobe as local sidecars for offline media conversion and probing.
+Kompri bundles unmodified static binaries of FFmpeg and FFprobe as local sidecars for offline media conversion and probing.
 
 1. FFmpeg & FFprobe
    License: GNU General Public License v3.0 (GPLv3)
@@ -656,7 +656,7 @@ export function SettingsPage() {
               </div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>MediaForge</p>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>Kompri</p>
                   {version && (
                     <span
                       className="glass-badge"
@@ -674,6 +674,7 @@ export function SettingsPage() {
                     </span>
                   )}
                 </div>
+                <p style={{ fontSize: "11px", color: "var(--text-sub)", marginTop: "2px" }}>{t("settings.formerlyName")}</p>
               </div>
             </div>
             <div

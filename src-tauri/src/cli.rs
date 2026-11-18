@@ -202,7 +202,7 @@ pub fn build_unique_cli_output_path(input_path: &str, suffix: &str, target_ext: 
     base
 }
 
-/// Detects the MediaForge section (`"image"`, `"audio"`, or `"video"`) from a file's extension.
+/// Detects the Kompri section (`"image"`, `"audio"`, or `"video"`) from a file's extension.
 pub fn detect_media_section(file_path: &str) -> &'static str {
     let file_name = file_path.rsplit(['/', '\\']).next().unwrap_or(file_path);
     let ext = file_name
@@ -232,7 +232,7 @@ mod tests {
     impl TempDirGuard {
         fn new() -> Self {
             let path = std::env::temp_dir().join(format!(
-                "mediaforge-cli-test-{}-{}-{}",
+                "kompri-cli-test-{}-{}-{}",
                 std::process::id(),
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn test_parse_compress_discord_with_spaces() {
         let args = s(&[
-            "MediaForge.exe",
+            "Kompri.exe",
             "--action",
             "compress",
             "--preset",
@@ -282,7 +282,7 @@ mod tests {
     #[test]
     fn test_parse_convert_multiple_files_with_wait() {
         let args = s(&[
-            "MediaForge.exe",
+            "Kompri.exe",
             "--action",
             "convert",
             "--to",
@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn test_parse_open_unc_unicode_path() {
         let args = s(&[
-            r"C:\Program Files\MediaForge\MediaForge.exe",
+            r"C:\Program Files\Kompri\Kompri.exe",
             "--action",
             "open",
             r"\\server\share\vidéo accentuée.mkv",
@@ -328,7 +328,7 @@ mod tests {
     #[test]
     fn test_parse_equals_syntax_and_headless_alias() {
         let args = s(&[
-            "MediaForge.exe",
+            "Kompri.exe",
             "--action=compress",
             "--preset=gmail",
             "--headless",
@@ -352,22 +352,22 @@ mod tests {
     #[test]
     fn test_parse_invalid_or_incomplete_returns_none() {
         assert_eq!(parse_cli_args(&s(&[])), None);
-        assert_eq!(parse_cli_args(&s(&["MediaForge.exe"])), None);
+        assert_eq!(parse_cli_args(&s(&["Kompri.exe"])), None);
         assert_eq!(
-            parse_cli_args(&s(&["MediaForge.exe", "clip.mp4"])),
+            parse_cli_args(&s(&["Kompri.exe", "clip.mp4"])),
             None
         );
         assert_eq!(
-            parse_cli_args(&s(&["MediaForge.exe", "--action", "open"])),
+            parse_cli_args(&s(&["Kompri.exe", "--action", "open"])),
             None
         );
         assert_eq!(
-            parse_cli_args(&s(&["MediaForge.exe", "--action", "compress", "clip.mp4"])),
+            parse_cli_args(&s(&["Kompri.exe", "--action", "compress", "clip.mp4"])),
             None
         );
         assert_eq!(
             parse_cli_args(&s(&[
-                "MediaForge.exe",
+                "Kompri.exe",
                 "--action",
                 "compress",
                 "--preset",
@@ -377,12 +377,12 @@ mod tests {
             None
         );
         assert_eq!(
-            parse_cli_args(&s(&["MediaForge.exe", "--action", "convert", "clip.mp4"])),
+            parse_cli_args(&s(&["Kompri.exe", "--action", "convert", "clip.mp4"])),
             None
         );
         assert_eq!(
             parse_cli_args(&s(&[
-                "MediaForge.exe",
+                "Kompri.exe",
                 "--action",
                 "convert",
                 "--to",
@@ -392,7 +392,7 @@ mod tests {
             None
         );
         assert_eq!(
-            parse_cli_args(&s(&["MediaForge.exe", "--action"])),
+            parse_cli_args(&s(&["Kompri.exe", "--action"])),
             None
         );
     }
@@ -425,19 +425,19 @@ mod tests {
     fn test_build_unique_cli_output_path_preserves_separators() {
         assert_eq!(
             build_unique_cli_output_path(
-                r"C:\NonExistentMediaForgeDir\clip.mov",
+                r"C:\NonExistentKompriDir\clip.mov",
                 "_discord",
                 "mp4"
             ),
-            r"C:\NonExistentMediaForgeDir\clip_discord.mp4"
+            r"C:\NonExistentKompriDir\clip_discord.mp4"
         );
         assert_eq!(
             build_unique_cli_output_path(
-                "C:/NonExistentMediaForgeDir/clip.mov",
+                "C:/NonExistentKompriDir/clip.mov",
                 "_discord",
                 "mp4"
             ),
-            "C:/NonExistentMediaForgeDir/clip_discord.mp4"
+            "C:/NonExistentKompriDir/clip_discord.mp4"
         );
         assert_eq!(
             build_unique_cli_output_path(
@@ -488,7 +488,7 @@ mod tests {
     #[test]
     fn test_dash_y_filename_after_double_dash_is_not_parsed_as_flag() {
         let args = s(&[
-            "MediaForge.exe",
+            "Kompri.exe",
             "--action",
             "compress",
             "--preset",

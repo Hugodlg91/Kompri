@@ -113,9 +113,10 @@
     "defaultImage": "Image",
     "targetSizePresets": "Target size presets (MB)",
     "contextMenu": "Integrate into Windows Explorer right-click menu",
-    "contextMenuHint": "Adds the MediaForge submenu on video, audio, and image files (HKCU, no admin required).",
+    "contextMenuHint": "Adds the Kompri submenu on video, audio, and image files (HKCU, no admin required).",
     "about": "About",
     "version": "Version",
+    "formerlyName": "Formerly MediaForge",
     "localOnly": "100% local — no data sent",
     "thirdPartyLicenses": "Third-party licenses",
     "thirdPartyLicensesClose": "Close"
