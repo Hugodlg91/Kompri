@@ -566,10 +566,11 @@ async fn execute_two_pass_attempt(
     plan: &target_size::TargetSizeEstimate,
     codec: Option<&str>,
     video_kbps: u32,
+    max_quality: bool,
 ) -> Result<(), String> {
     let pass_dir = target_size::PassLogDir::new()?;
 
-    let pass1_args = target_size::build_two_pass_ffmpeg_args(
+    let pass1_args = target_size::build_two_pass_ffmpeg_args_with_options(
         input_path,
         output_path,
         plan,
@@ -577,6 +578,7 @@ async fn execute_two_pass_attempt(
         1,
         pass_dir.path(),
         video_kbps,
+        max_quality,
     );
     run_ffmpeg_with_pass(
         app.clone(),
@@ -589,7 +591,7 @@ async fn execute_two_pass_attempt(
     )
     .await?;
 
-    let pass2_args = target_size::build_two_pass_ffmpeg_args(
+    let pass2_args = target_size::build_two_pass_ffmpeg_args_with_options(
         input_path,
         output_path,
         plan,
@@ -597,6 +599,7 @@ async fn execute_two_pass_attempt(
         2,
         pass_dir.path(),
         video_kbps,
+        max_quality,
     );
     let pass2_res = run_ffmpeg_with_pass(
         app.clone(),
@@ -660,6 +663,7 @@ async fn compress_single_video_impl(
     target_mb: f64,
     codec: Option<String>,
     copy_if_under: bool,
+    max_quality: bool,
 ) -> Result<String, String> {
     if cancel.load(Ordering::Acquire) {
         return Err(cancelled_error());
@@ -755,6 +759,7 @@ async fn compress_single_video_impl(
         &plan,
         codec.as_deref(),
         plan.video_kbps,
+        max_quality,
     )
     .await?;
 
@@ -779,6 +784,7 @@ async fn compress_single_video_impl(
         &plan,
         codec.as_deref(),
         retry_kbps,
+        max_quality,
     )
     .await?;
 
@@ -798,6 +804,7 @@ async fn compress_single_video_impl(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command(rename_all = "snake_case")]
 async fn compress_video_to_size(
     app: tauri::AppHandle,
@@ -807,6 +814,7 @@ async fn compress_video_to_size(
     target_mb: f64,
     codec: Option<String>,
     copy_if_under: Option<bool>,
+    max_quality: Option<bool>,
 ) -> Result<String, String> {
     let _job = start_ffmpeg_job(&state)?;
     let slot = Arc::clone(&state.current_process);
@@ -820,6 +828,7 @@ async fn compress_video_to_size(
         target_mb,
         codec,
         copy_if_under.unwrap_or(false),
+        max_quality.unwrap_or(false),
     )
     .await
 }
@@ -832,11 +841,13 @@ async fn compress_video_batch_to_size(
     target_mb: f64,
     codec: Option<String>,
     copy_if_under: Option<bool>,
+    max_quality: Option<bool>,
 ) -> Result<Vec<BatchResult>, String> {
     let _job = start_ffmpeg_job(&state)?;
     let total = files.len();
     let mut results: Vec<BatchResult> = Vec::with_capacity(total);
     let copy_under = copy_if_under.unwrap_or(true);
+    let use_max_quality = max_quality.unwrap_or(false);
 
     for (i, item) in files.into_iter().enumerate() {
         if state.cancel_requested.load(Ordering::Acquire) {
@@ -869,6 +880,7 @@ async fn compress_video_batch_to_size(
             target_mb,
             codec.clone(),
             copy_under,
+            use_max_quality,
         )
         .await;
 
@@ -1424,6 +1436,9 @@ pub struct Settings {
     pub preset_gmail_mb: f64,
     #[serde(default)]
     pub context_menu_enabled: bool,
+    /// Default state of the "Max quality (slower)" target-size option.
+    #[serde(default)]
+    pub target_size_max_quality: bool,
 }
 
 impl Default for Settings {
@@ -1439,6 +1454,7 @@ impl Default for Settings {
             preset_whatsapp_mb: default_whatsapp_mb(),
             preset_gmail_mb: default_gmail_mb(),
             context_menu_enabled: false,
+            target_size_max_quality: false,
         }
     }
 }
@@ -1479,6 +1495,9 @@ async fn get_settings(app: tauri::AppHandle) -> Result<Settings, String> {
     let context_menu_enabled = store.get("context_menu_enabled")
         .and_then(|v| v.as_bool())
         .unwrap_or_else(|| context_menu::is_context_menu_registered().unwrap_or(false));
+    let target_size_max_quality = store.get("target_size_max_quality")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(d.target_size_max_quality);
     Ok(Settings {
         language,
         theme,
@@ -1490,6 +1509,7 @@ async fn get_settings(app: tauri::AppHandle) -> Result<Settings, String> {
         preset_whatsapp_mb,
         preset_gmail_mb,
         context_menu_enabled,
+        target_size_max_quality,
     })
 }
 
@@ -1506,6 +1526,7 @@ async fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), 
     store.set("preset_whatsapp_mb", serde_json::json!(settings.preset_whatsapp_mb));
     store.set("preset_gmail_mb", serde_json::json!(settings.preset_gmail_mb));
     store.set("context_menu_enabled", serde_json::json!(settings.context_menu_enabled));
+    store.set("target_size_max_quality", serde_json::json!(settings.target_size_max_quality));
     store.save().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -1675,6 +1696,7 @@ async fn execute_cli_file_action(
     app: &tauri::AppHandle,
     state: &AppState,
     action: &cli::CliAction,
+    max_quality: Option<bool>,
     input_path: &str,
 ) -> Result<String, String> {
     let settings = get_settings(app.clone()).await.unwrap_or_default();
@@ -1699,6 +1721,7 @@ async fn execute_cli_file_action(
                 target_mb,
                 Some("h264".to_string()),
                 true,
+                max_quality.unwrap_or(settings.target_size_max_quality),
             )
             .await
         }
@@ -1831,7 +1854,7 @@ fn spawn_cli_request_handler(app: tauri::AppHandle, req: cli::CliRequest) {
                 },
             );
 
-            match execute_cli_file_action(&app, &state, &req.action, file_path).await {
+            match execute_cli_file_action(&app, &state, &req.action, req.max_quality, file_path).await {
                 Ok(out_path) => {
                     let src_ext = std::path::Path::new(file_path)
                         .extension()
