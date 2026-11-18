@@ -1,5 +1,5 @@
-// Demo harness: runs the real MediaForge UI with a simulated Tauri backend.
-// Numbers come from a real run of MediaForge's own target-size planner and
+// Demo harness: runs the real Kompri UI with a simulated Tauri backend.
+// Numbers come from a real run of Kompri's own target-size planner and
 // 2-pass FFmpeg arguments on a 60 s 1080p60 clip (122,773,228 B -> 9,557,754 B).
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";

@@ -1,10 +1,10 @@
-# MediaForge — Arborescence du projet
+# Kompri (ex-MediaForge) — Arborescence du projet
 
 > Mise à jour le 26 mars 2026 — basée sur `git ls-files` (fichiers versionnés uniquement).  
 > Les dossiers `node_modules/`, `src-tauri/target/`, `dist/` et les binaires FFmpeg sont exclus par `.gitignore`.
 
 ```
-MediaForge/
+Kompri/
 │
 ├── .gitattributes                      # Normalisation LF pour les textes, binaire pour les assets
 ├── .gitignore                          # Règles d'exclusion git (complètes)
@@ -20,7 +20,7 @@ MediaForge/
 ├── vite.config.ts                      # Config Vite + Vitest (jsdom, globals)
 ├── tsconfig.json                       # Config TypeScript (app)
 ├── tsconfig.node.json                  # Config TypeScript (outils de build)
-├── package.json                        # Dépendances npm (mediaforge v1.2.1) + scripts
+├── package.json                        # Dépendances npm (kompri v1.2.2) + scripts
 ├── package-lock.json                   # Lockfile npm
 │
 ├── DEVLOG.md                           # Journal de développement (étapes 1-17)
@@ -35,8 +35,8 @@ MediaForge/
 │   ├── PLAN-v1.2.1.md                  # Plan de correctifs et finition de la v1.2.1
 │   ├── SCREENSHOTS_CHECKLIST.md        # Checklist des captures d'écran et GIF de démo
 │   └── assets/
-│       ├── mediaforge-demo.gif         # Démo animée du README (générée via npm run record-demo)
-│       └── mediaforge-demo.mp4         # Version MP4 de la démo
+│       ├── kompri-demo.gif         # Démo animée du README (générée via npm run record-demo)
+│       └── kompri-demo.mp4         # Version MP4 de la démo
 │
 ├── licenses/
 │   └── FFmpeg-GPLv3.txt                # Texte complet de la licence GNU GPLv3 (FFmpeg sidecar)

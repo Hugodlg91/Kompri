@@ -152,7 +152,7 @@ jobs:
           "$FFMPEG_BIN" -version
           "$FFPROBE_BIN" -version
 
-          # Verify all video & audio encoders used by MediaForge are compiled in:
+          # Verify all video & audio encoders used by Kompri are compiled in:
           # - Video: libx264 (H.264 / MP4 / MKV / MOV / target-size), libx265 (H.265),
           #          libvpx-vp9 (VP9 / WebM), mpeg4 (AVI default video)
           # - Audio: aac (AAC / M4A / MP4 / MOV / target-size), libmp3lame (MP3 / AVI),
@@ -193,19 +193,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "MediaForge ${{ github.ref_name }}"
+          releaseName: "Kompri ${{ github.ref_name }}"
           releaseBody: |
-            ## MediaForge ${{ github.ref_name }}
+            ## Kompri ${{ github.ref_name }}
+
+            Kompri was called **MediaForge** up to v1.2.1. See the CHANGELOG for migration notes.
 
             ### Download
-            - **Windows** : `MediaForge_x64-setup.exe` (recommended) or `.msi`
-            - **macOS** : `MediaForge_aarch64.dmg`
-            - **Linux** : `MediaForge_amd64.AppImage` or `.deb`
+            - **Windows** : `Kompri_<version>_x64-setup.exe` (recommended) or `.msi`
+            - **macOS** : `Kompri_<version>_aarch64.dmg`
+            - **Linux** : `Kompri_<version>_amd64.AppImage`, `.deb` or `.rpm`
 
             ### Requirements
             No additional runtime required — FFmpeg is bundled.
 
-            See [CHANGELOG](https://github.com/Hugodlg91/MediaForge/blob/main/CHANGELOG.md)
+            See [CHANGELOG](https://github.com/Hugodlg91/Kompri/blob/main/CHANGELOG.md)
             for full release notes.
           releaseDraft: false
           prerelease: false

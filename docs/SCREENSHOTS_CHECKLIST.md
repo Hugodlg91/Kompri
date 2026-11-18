@@ -1,4 +1,4 @@
-# MediaForge — Screenshots & Demo Capture Checklist
+# Kompri — Screenshots & Demo Capture Checklist
 
 Use this checklist to capture consistent, high-DPI visual assets for the repository `README.md`, GitHub Releases, and store listings.
 
@@ -17,7 +17,7 @@ Store all captured assets under `docs/assets/` (relative paths below assume the 
 
 ## Checklist
 
-- [x] **1. Short Workflow Demo GIF** — `docs/assets/mediaforge-demo.gif` & `docs/assets/mediaforge-demo.mp4`
+- [x] **1. Short Workflow Demo GIF** — `docs/assets/kompri-demo.gif` & `docs/assets/kompri-demo.mp4`
   - **Duration**: `~12` seconds (automated via `npm run record-demo` in `scripts/record-demo/`).
   - **Flow**: Switch to Video tab → drag & drop `ranked-clutch.mp4` (117.1 MB) → select **Discord 10 MB** preset → click Convert (`Pass 1/2` & `Pass 2/2`) → view `9.1 MB` result in History.
 
@@ -28,7 +28,7 @@ Store all captured assets under `docs/assets/` (relative paths below assume the 
   - **What to show**: Video Converter switched to **Target Size** mode with the **Discord (10 MB)** preset active, the live estimated output resolution/FPS badge visible, and active 2-pass progress (`Pass 1/2 — Analysis` or `Pass 2/2 — Encoding`).
 
 - [ ] **4. Windows Explorer Right-Click Context Menu** — `docs/assets/context-menu-windows.png`
-  - **What to show**: Windows Explorer classic context menu (`Shift + F10` / *Show more options* on Windows 11) on a `.mp4` file displaying the expanded cascading **MediaForge** submenu (*Compress for Discord (10 MB)*, *Compress for WhatsApp (16 MB)*, *Compress for Gmail (25 MB)*, *Convert to MP4 / MP3*, *Open in MediaForge…*).
+  - **What to show**: Windows Explorer classic context menu (`Shift + F10` / *Show more options* on Windows 11) on a `.mp4` file displaying the expanded cascading **Kompri** submenu (*Compress for Discord (10 MB)*, *Compress for WhatsApp (16 MB)*, *Compress for Gmail (25 MB)*, *Convert to MP4 / MP3*, *Open in Kompri…*).
 
 - [ ] **5. Dark vs Light Themes** — `docs/assets/themes-dark-light.png`
   - **What to show**: Side-by-side comparison (or paired screenshots) of **Dark (*Liquid Obsidian*)** and **Light (*Iridescent Pearl*)** themes showcasing the Liquid Glass translucent cards, specular highlights, and ambient aurora backdrop.
