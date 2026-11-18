@@ -329,7 +329,8 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
   - Création de `.github/workflows/ci.yml` (push & PR sur Windows et Ubuntu : `tsc --noEmit`, `vitest run`, `cargo test`, `cargo clippy -- -D warnings`).
 - [x] **Correctif 7 — Documentation & Rangement (`README.md`, `CHANGELOG.md`, `docs/`)** :
   - Création de `docs/SCREENSHOTS_CHECKLIST.md`, ajout du badge CI, de la section `Third-Party Licenses` et mise à jour du tableau `Production Build` en `1.2.1` dans `README.md` et `CHANGELOG.md`.
-- [x] **Correctif 8 — Démo animée du README (`scripts/record-demo/`, `docs/assets/mediaforge-demo.gif` & `.mp4`) & Smoke test des encodeurs FFmpeg** :
+- [x] **Correctif 8 — Nouvelle icône MediaForge, Démo animée du README (`scripts/record-demo/`, `docs/assets/mediaforge-demo.gif` & `.mp4`) & Smoke test des encodeurs FFmpeg** :
+  - Mise à jour de l'icône de l'application (`resource/app-icon.svg`, `resource/app-icon.png`, `src-tauri/icons/*`) et du logo SVG dans `Sidebar.tsx`.
   - Intégration du harness Playwright + Vite (`scripts/record-demo/`) avec le script `"record-demo": "node scripts/record-demo/record.mjs"` et `playwright` (`^1.63.0`) en `devDependencies`, exclusion de `scripts/` dans `tsconfig.json` et `vite.config.ts` (`test.exclude`), exécution de `npm run record-demo` et intégration de `docs/assets/mediaforge-demo.gif` sous le titre de `README.md`.
   - Enrichissement du smoke test CI multi-OS dans `.github/workflows/release.yml` pour vérifier la présence effective dans `ffmpeg -encoders` des 10 encodeurs vidéo et audio utilisés par MediaForge (`libx264`, `libx265`, `libvpx-vp9`, `mpeg4`, `aac`, `libmp3lame`, `flac`, `libvorbis`, `libopus`, `pcm_s16le`).
 - [x] **Validation finale v1.2.1** : **63/63 tests unitaires Rust** + **55/55 tests Vitest** passent avec **0 warning Clippy** et **0 erreur TypeScript**.

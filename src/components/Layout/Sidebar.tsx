@@ -42,18 +42,20 @@ export function Sidebar({ active, onChange }: SidebarProps) {
           userSelect: "none",
         }}
       >
-        <span
-          style={{
-            color: "#ffffff",
-            fontWeight: 800,
-            fontSize: "16px",
-            lineHeight: 1,
-            letterSpacing: "-0.02em",
-            textShadow: "0 1px 3px rgba(0, 0, 0, 0.25)",
-          }}
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-label="MediaForge"
+          role="img"
+          style={{ filter: "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25))" }}
         >
-          M
-        </span>
+          <g stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3.5 8V4.5h3.5M17 4.5h3.5V8M20.5 16v3.5H17M7 19.5H3.5V16" />
+            <path d="M10 8.6v6.8l5.4-3.4z" fill="#ffffff" />
+          </g>
+        </svg>
       </div>
 
       <nav className="sidebar-nav">

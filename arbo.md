@@ -51,7 +51,8 @@ MediaForge/
 │       └── record.mjs
 │
 ├── resource/
-│   └── app-icon.png                    # Source 1024×1024 de l'icône de l'app
+│   ├── app-icon.png                    # Source 1024×1024 de l'icône de l'app
+│   └── app-icon.svg                    # Source vectorielle SVG de l'icône de l'app
 │
 ├── src/                                # Frontend React + TypeScript
 │   ├── main.tsx                        # Point d'entrée React (GlobalErrorBoundary → App)
