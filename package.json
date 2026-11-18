@@ -1,7 +1,7 @@
 {
   "name": "kompri",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.2.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "record-demo": "node scripts/record-demo/record.mjs"
+    "record-demo": "node scripts/record-demo/record.mjs",
+    "social-preview": "node scripts/record-demo/social-preview.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
