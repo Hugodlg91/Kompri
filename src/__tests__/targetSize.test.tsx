@@ -779,6 +779,54 @@ describe("Target-size video compression, 2-pass progress, settings & CLI mini-mo
     expect(screen.queryByText(en.targetSize.h265Warning)).toBeNull();
   });
 
+  it("shows the H.265 note in regular mode only when H.265 is selected, without disabling Convert", async () => {
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") {
+        return Promise.resolve({
+          language: "en",
+          theme: "dark",
+          output_dir: null,
+          default_video_format: "mp4",
+          default_audio_format: "mp3",
+          default_image_format: "webp",
+        });
+      }
+      if (command === "get_media_info") {
+        return Promise.resolve({
+          duration: 60,
+          width: 1920,
+          height: 1080,
+          video_codec: "h264",
+          file_size: 40 * 1024 * 1024,
+          fps: 30,
+        });
+      }
+      return Promise.resolve();
+    });
+
+    render(
+      <SettingsProvider>
+        <VideoConverter />
+      </SettingsProvider>
+    );
+
+    await dropVideoFile("C:/videos/clip.mp4");
+    fireEvent.click(await screen.findByRole("button", { name: new RegExp(en.converter.advancedOptions) }));
+
+    const codecSelect = (await screen.findByRole("option", { name: "H.265" })).closest("select")!;
+    expect(screen.queryByRole("note")).toBeNull();
+
+    fireEvent.change(codecSelect, { target: { value: "h264" } });
+    expect(screen.queryByRole("note")).toBeNull();
+
+    fireEvent.change(codecSelect, { target: { value: "h265" } });
+    expect(await screen.findByRole("note")).toHaveTextContent(en.targetSize.h265Warning);
+    expect(screen.getByRole("button", { name: en.converter.convert })).not.toBeDisabled();
+
+    fireEvent.change(codecSelect, { target: { value: "h264" } });
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
   it("passes max_quality: true when Max quality (slower) is toggled in VideoConverter and persists targetSizeMaxQuality in SettingsPage", async () => {
     mocks.invoke.mockImplementation((command: string) => {
       if (command === "get_settings") {
