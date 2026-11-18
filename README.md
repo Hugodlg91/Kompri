@@ -9,6 +9,10 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-lightgrey?style=flat-square)](https://github.com/Hugodlg91/MediaForge/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-24c8db?style=flat-square)](https://tauri.app)
 
+<br />
+
+![MediaForge Demo](docs/assets/mediaforge-demo.gif)
+
 </div>
 
 ---
@@ -18,13 +22,6 @@
 MediaForge is a desktop application that converts images, videos, and audio files **entirely on your machine** — no upload, no internet connection required, no account to create, no ads.
 
 It is designed for anyone who needs reliable, fast media conversion without sacrificing privacy or having to deal with bloated web tools or watermarks.
-
----
-
-## Demo & Screenshots
-
-> **Media assets pending capture**: The 6–8s workflow demo (`docs/assets/demo.gif`) and feature screenshots (simple conversion, 1-Click Target Size mode, Windows Explorer cascading context menu, and Dark *Liquid Obsidian* vs Light *Iridescent Pearl* themes) will be published in `docs/assets/`.
-> See [`docs/SCREENSHOTS_CHECKLIST.md`](docs/SCREENSHOTS_CHECKLIST.md) for the complete capture checklist and guidelines.
 
 ---
 
@@ -125,7 +122,12 @@ npm run tauri dev
 # Run unit tests (Vitest + Rust)
 npm test
 cd src-tauri && cargo test
+
+# Regenerate with npm run record-demo
+npm run record-demo
 ```
+
+Regenerate with `npm run record-demo` (requires Playwright Chromium or `CHROME_PATH` and `ffmpeg` in `PATH` — see [`scripts/record-demo/README.md`](scripts/record-demo/README.md)).
 
 ### Production Build
 

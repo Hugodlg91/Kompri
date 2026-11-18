@@ -31,6 +31,8 @@
 *.tiff binary
 *.tif binary
 *.gif binary
+*.mp4 binary
+*.webm binary
 *.ico binary
 *.icns binary
 *.exe binary
