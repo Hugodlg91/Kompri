@@ -8,12 +8,12 @@
 
 ## Étapes du Plan (`v1.2.1`)
 
-- [ ] **Étape 1 (Correctif 5) — Normalisation des fins de ligne (`.gitattributes` + `git add --renormalize .`)**
+- [x] **Étape 1 (Correctif 5) — Normalisation des fins de ligne (`.gitattributes` + `git add --renormalize .`)**
   - Création de `.gitattributes` à la racine (`* text=auto eol=lf` + exceptions binaires : `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.tiff`, `.tif`, `.ico`, `.icns`, `.exe`, `.dll`, `.woff`, `.woff2`).
   - Exécution de `git add --renormalize .` dans un **commit dédié isolé**, sans aucun autre changement, pour éliminer définitivement les problèmes CRLF.
   - **Critère de fini** : commit atomique `chore(git): add .gitattributes and normalize line endings to LF` créé, `git status` propre.
 
-- [ ] **Étape 2 (Correctif 1 & 6) — FFmpeg statique sur macOS (`release.yml`), Smoke Tests multi-OS & Workflow `ci.yml`**
+- [x] **Étape 2 (Correctif 1 & 6) — FFmpeg statique sur macOS (`release.yml`), Smoke Tests multi-OS & Workflow `ci.yml`**
   - **macOS (`aarch64-apple-darwin`)** : remplacement de `brew install ffmpeg` (lié dynamiquement à `/opt/homebrew`) par le téléchargement figé par version (`b6.1.1`) et vérifié par **checksum SHA-256** des binaires statiques `ffmpeg-darwin-arm64.gz` et `ffprobe-darwin-arm64.gz` (`eugeneware/ffmpeg-static` / `osxexperts`), extraction vers `src-tauri/binaries/ffmpeg-aarch64-apple-darwin` et `ffprobe-aarch64-apple-darwin`, et suppression de quarantaine.
   - **Vérification `otool -L` sur macOS** : étape CI dédiée vérifiant que `otool -L` sur les deux binaires ne contient aucune référence à `/opt/homebrew` ni `/usr/local` (échec immédiat du job sinon).
   - **Smoke test sur les 3 OS (Windows, macOS, Linux)** dans `release.yml` :
@@ -24,14 +24,14 @@
   - **Nouveau workflow `.github/workflows/ci.yml`** déclenché sur `push` et `pull_request` (`windows-latest` et `ubuntu-22.04`) exécutant `npx tsc --noEmit`, `npx vitest run`, `cargo test` et `cargo clippy -- -D warnings` (avec création des placeholders binaires FFmpeg pour `cargo test`/`clippy`).
   - **Critère de fini** : `.github/workflows/release.yml`, `.github/workflows/ci.yml` et `src-tauri/binaries/README.md` validés.
 
-- [ ] **Étape 3 (Correctif 2) — Licences tierces de FFmpeg (`THIRD_PARTY_NOTICES.md` + `licenses/` + UI Settings/About)**
+- [x] **Étape 3 (Correctif 2) — Licences tierces de FFmpeg (`THIRD_PARTY_NOTICES.md` + `licenses/` + UI Settings/About)**
   - Création de `THIRD_PARTY_NOTICES.md` à la racine et de `licenses/FFmpeg-GPLv3.txt` (texte de la licence GPLv3 / LGPLv2.1 applicable aux builds FFmpeg embarqués avec `libx264`/`libx265`) détaillant pour chaque plateforme (Windows `gyan.dev`, macOS `eugeneware/ffmpeg-static` / `osxexperts`, Linux `johnvansickle`) la licence exacte (**GPL v3** en raison de `--enable-gpl --enable-libx264 --enable-libx265`), la version embarquée, la source officielle et le lien vers le code source correspondant.
   - Embarquement de `THIRD_PARTY_NOTICES.md` et `licenses/` dans les ressources du bundle Tauri (`bundle.resources` dans `src-tauri/tauri.conf.json`).
   - Ajout d'un bouton/modale ou vue « Licences tierces » (`settings.thirdPartyLicenses`) dans la section **À propos** de `SettingsPage.tsx`, traduit dans les 5 langues (`fr`, `en`, `es`, `de`, `pt`), permettant de consulter les notices FFmpeg directement dans l'application (ou d'ouvrir le fichier/lien).
   - Conservation intacte du fichier `LICENSE` du projet (MIT + Commons Clause).
   - **Critère de fini** : `THIRD_PARTY_NOTICES.md` et `licenses/` créés, embarqués dans `tauri.conf.json`, affichés dans `SettingsPage.tsx` en 5 langues, tests unitaires passants.
 
-- [ ] **Étape 4 (Correctif 3) — Renommage des métadonnées (`mediaforge` / `mediaforge_lib`), `mainBinaryName` & migration automatique du menu clic droit**
+- [x] **Étape 4 (Correctif 3) — Renommage des métadonnées (`mediaforge` / `mediaforge_lib`), `mainBinaryName` & migration automatique du menu clic droit**
   - `package.json` : `"name": "mediaforge"`.
   - `src-tauri/Cargo.toml` : `name = "mediaforge"`, `[lib] name = "mediaforge_lib"`, `authors = ["VladimirWRLD"]`, `description = "MediaForge — Local, fast, and private media converter"`.
   - `src-tauri/src/main.rs` : `mediaforge_lib::run()`.
@@ -44,7 +44,7 @@
     - Ajout d'un test unitaire dans `context_menu.rs` simulant le scénario « installé en `1.2.0` avec `C:\OldPath\tauri-app.exe` → migration en `1.2.1` vers `C:\NewPath\MediaForge.exe` » et vérifiant que toutes les commandes du registre pointent vers le nouvel exécutable.
   - **Critère de fini** : `cargo test`, `cargo clippy -- -D warnings`, `tsc --noEmit` et `vitest run` passent à 100 % avec le nouveau crate `mediaforge_lib` et le test de migration `1.2.0 -> 1.2.1`.
 
-- [ ] **Étape 5 (Correctif 4) — Durcissement Sécurité (Suppression permissions `shell` front, CSP stricte, protection `--` CLI/FFmpeg)**
+- [x] **Étape 5 (Correctif 4) — Durcissement Sécurité (Suppression permissions `shell` front, CSP stricte, protection `--` CLI/FFmpeg)**
   - **Retrait des permissions `shell` côté frontend** :
     - Vérification qu'aucun fichier dans `src/` n'importe `@tauri-apps/plugin-shell`.
     - Suppression de `"shell:allow-execute"`, `"shell:allow-kill"`, `"shell:allow-stdin-write"` dans `src-tauri/capabilities/default.json`.
@@ -58,7 +58,7 @@
     - Ajout d'un test unitaire explicite avec un fichier nommé `"-y.mp4"` (tant dans `cli.rs`, `context_menu.rs` que `target_size.rs`) prouvant qu'il n'est jamais interprété comme l'option `-y` par le parseur CLI ni par FFmpeg/FFprobe.
   - **Critère de fini** : `capabilities/default.json` et `tauri.conf.json` durcis, test `"-y.mp4"` passant dans `cargo test`.
 
-- [ ] **Étape 6 (Correctif 7 & Finale) — Rangemement `docs/`, mise à jour `README.md`, `CHANGELOG.md`, `DEVLOG.md`, bump `1.2.1`**
+- [x] **Étape 6 (Correctif 7 & Finale) — Rangemement `docs/`, mise à jour `README.md`, `CHANGELOG.md`, `DEVLOG.md`, bump `1.2.1`**
   - Déplacement de `PLAN-v1.2.md` vers `docs/PLAN-v1.2.md` (`git mv PLAN-v1.2.md docs/PLAN-v1.2.md`).
   - Création de `docs/SCREENSHOTS_CHECKLIST.md` listant précisément les captures et le GIF de démo (`docs/assets/demo.gif`) à réaliser.
   - Mise à jour de `README.md` :

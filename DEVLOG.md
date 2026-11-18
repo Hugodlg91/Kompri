@@ -303,6 +303,34 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
 - [x] **Limitation connue Windows 11 documentée** : le menu contextuel moderne de premier niveau de Windows 11 exigeant une identité de package MSIX signée par un certificat EV payant (`IExplorerCommand`), le menu en cascade **MediaForge** apparaît dans le menu classique (**`Shift + F10`** ou **« Afficher plus d'options »**) sur Windows 11, et directement au premier niveau sur Windows 10.
 - [x] **Validation finale v1.2.0** : **57 tests unitaires Rust** + **51 tests Vitest** + **15/15 tests E2E FFmpeg** passent avec 0 warning Clippy et 0 erreur TypeScript.
 
+### ✅ Étape 17 — v1.2.1 : Correctifs, FFmpeg statique macOS, Licences tierces, Sécurité & Finition (TERMINÉE)
+- [x] **Branche & Planification** : branche `fix/v1.2.1-polish` créée depuis `v1.2.0`, plan détaillé dans `docs/PLAN-v1.2.1.md` et déplacement de `PLAN-v1.2.md` vers `docs/PLAN-v1.2.md`.
+- [x] **Correctif 1 — FFmpeg statique sur macOS (`release.yml` & `src-tauri/binaries/README.md`)** :
+  - Remplacement de `brew install ffmpeg` (qui liait dynamiquement à `/opt/homebrew`) par le téléchargement figé par version (`b6.1.1` depuis `eugeneware/ffmpeg-static` / `osxexperts`) des binaires statiques `ffmpeg-darwin-arm64.gz` et `ffprobe-darwin-arm64.gz` avec vérification d'intégrité **SHA-256** (`shasum -a 256 -c`).
+  - Ajout d'une étape CI `otool -L` sur macOS qui échoue immédiatement si `/opt/homebrew` ou `/usr/local` est référencé.
+  - Ajout d'un **smoke test multi-OS** (Windows, macOS, Linux) exécutant `ffmpeg -version`, `ffprobe -version`, puis générant et validant une vidéo `testsrc2` + `sine` de 1 s avec les binaires embarqués.
+- [x] **Correctif 2 — Licences tierces de FFmpeg (`THIRD_PARTY_NOTICES.md`, `licenses/FFmpeg-GPLv3.txt`, `SettingsPage.tsx`)** :
+  - Documentation complète des licences FFmpeg/FFprobe (**GPL v3.0** du fait de `--enable-gpl --enable-version3 --enable-libx264 --enable-libx265`) avec versions, sources des builds binaires et liens vers le code source amont pour Windows (`gyan.dev`), macOS (`eugeneware/ffmpeg-static` / `osxexperts`) et Linux (`johnvansickle.com`).
+  - Embarquement de `THIRD_PARTY_NOTICES.md` et `licenses/*` dans `bundle.resources` (`tauri.conf.json`).
+  - Ajout du panneau « Licences tierces » dans la section **À propos** de `SettingsPage.tsx` (commande Tauri `get_third_party_notices` + fallback embarqué), traduit dans les 5 langues (`fr`, `en`, `es`, `de`, `pt`).
+  - Conservation intacte du fichier `LICENSE` (MIT + Commons Clause).
+- [x] **Correctif 3 — Renommage des métadonnées (`mediaforge` / `mediaforge_lib`), `mainBinaryName` & Migration du menu clic droit** :
+  - `package.json` → `"name": "mediaforge"` ; `Cargo.toml` → `name = "mediaforge"`, `lib.name = "mediaforge_lib"`, `authors = ["VladimirWRLD"]`, description en anglais ; `main.rs` → `mediaforge_lib::run()`.
+  - `tauri.conf.json` → ajout de `"mainBinaryName": "MediaForge"` (conserve le nom de l'exécutable `MediaForge.exe`), `"identifier": "com.mediaforge.app"` inchangé, copyright `VladimirWRLD` et descriptions en anglais.
+  - **Migration automatique au démarrage (`sync_context_menu_on_startup`)** : si le menu contextuel est activé dans `settings.json` ou déjà présent dans `HKCU`, réécrit automatiquement les clés `HKCU\Software\Classes\SystemFileAssociations\...\shell\MediaForge` avec le chemin de l'exécutable courant (`std::env::current_exe()`), garantissant une mise à jour transparente depuis la `1.2.0` (`tauri-app.exe` → `MediaForge.exe`). Couvert par le test unitaire `test_upgrade_migration_from_v120_to_v121_updates_exe_path`.
+- [x] **Correctif 4 — Durcissement Sécurité (`capabilities/default.json`, CSP `tauri.conf.json`, test `-y.mp4`)** :
+  - Retrait de `shell:allow-execute`, `shell:allow-kill` et `shell:allow-stdin-write` de `capabilities/default.json` et suppression de `@tauri-apps/plugin-shell` de `package.json` (le sidecar FFmpeg étant invoqué exclusivement côté Rust).
+  - Remplacement de `"csp": null` par une politique CSP Tauri v2 stricte (`default-src 'self'`, `asset:`/`ipc:` localhost, `object-src 'none'`, `base-uri 'self'`).
+  - Ajout des tests unitaires `test_dash_y_filename_after_double_dash_is_not_parsed_as_flag` (`cli.rs`) et `test_dash_y_filename_cannot_inject_ffmpeg_option` (`target_size.rs`) prouvant qu'un fichier nommé `"-y.mp4"` ne peut jamais être interprété comme une option CLI ou FFmpeg.
+- [x] **Correctif 5 — Fins de ligne (`.gitattributes`)** :
+  - Création de `.gitattributes` (`* text=auto eol=lf` + exceptions binaires) et renormalisation complète du dépôt dans un commit atomique dédié (`4f5b933`).
+- [x] **Correctif 6 — CI & Releases (`.github/workflows/ci.yml` & `release.yml`)** :
+  - Diagnostic de la release `v1.1.0` : lors du re-taggage initial, le tag `v1.1.0` avait brièvement pointé sur un commit où `tauri.conf.json` était en `1.2.0`, provoquant l'ajout d'assets `1.2.0` avant que le run suivant n'ajoute les assets `1.1.0`. Ajout d'une étape de vérification stricte `v$(tauri.conf.json.version) == GITHUB_REF_NAME` en tête de `release.yml`.
+  - Création de `.github/workflows/ci.yml` (push & PR sur Windows et Ubuntu : `tsc --noEmit`, `vitest run`, `cargo test`, `cargo clippy -- -D warnings`).
+- [x] **Correctif 7 — Documentation & Rangement (`README.md`, `CHANGELOG.md`, `docs/`)** :
+  - Création de `docs/SCREENSHOTS_CHECKLIST.md`, ajout du badge CI, de la section `Demo & Screenshots` (`docs/assets/demo.gif`), de la section `Third-Party Licenses` et mise à jour du tableau `Production Build` en `1.2.1` dans `README.md` et `CHANGELOG.md`.
+- [x] **Validation finale v1.2.1** : **63/63 tests unitaires Rust** + **55/55 tests Vitest** passent avec **0 warning Clippy** et **0 erreur TypeScript**.
+
 ---
 
 ## Décisions techniques prises

@@ -6,7 +6,13 @@
 ```
 MediaForge/
 │
+├── .gitattributes                      # Normalisation LF pour les textes, binaire pour les assets
 ├── .gitignore                          # Règles d'exclusion git (complètes)
+├── .github/
+│   ├── FUNDING.yml                     # Lien Sponsor Ko-fi
+│   └── workflows/
+│       ├── ci.yml                      # CI sur push/PR (tsc, vitest, cargo test, cargo clippy)
+│       └── release.yml                 # Build & publication multi-OS sur tag v* (avec smoke tests FFmpeg)
 ├── .vscode/
 │   └── extensions.json                 # Extensions VS Code recommandées
 │
@@ -14,14 +20,23 @@ MediaForge/
 ├── vite.config.ts                      # Config Vite + Vitest (jsdom, globals)
 ├── tsconfig.json                       # Config TypeScript (app)
 ├── tsconfig.node.json                  # Config TypeScript (outils de build)
-├── package.json                        # Dépendances npm + scripts (dev/build/test/tauri)
+├── package.json                        # Dépendances npm (mediaforge v1.2.1) + scripts
 ├── package-lock.json                   # Lockfile npm
 │
-├── DEVLOG.md                           # Journal de développement (étapes 1-16)
-├── CHANGELOG.md                        # Notes de version (v1.0.0 → v1.2.0)
-├── PLAN-v1.2.md                        # Plan d'architecture et résultats E2E de la v1.2.0
+├── DEVLOG.md                           # Journal de développement (étapes 1-17)
+├── CHANGELOG.md                        # Notes de version (v1.0.0 → v1.2.1)
+├── THIRD_PARTY_NOTICES.md              # Notices et sources FFmpeg/FFprobe (GPLv3) par plateforme
+├── LICENSE                             # Licence du projet (MIT + Commons Clause)
 ├── README.md                           # Documentation générale du projet
 ├── arbo.md                             # Ce fichier — arborescence du projet
+│
+├── docs/
+│   ├── PLAN-v1.2.md                    # Plan d'architecture et résultats E2E de la v1.2.0
+│   ├── PLAN-v1.2.1.md                  # Plan de correctifs et finition de la v1.2.1
+│   └── SCREENSHOTS_CHECKLIST.md        # Checklist des captures d'écran et GIF de démo
+│
+├── licenses/
+│   └── FFmpeg-GPLv3.txt                # Texte complet de la licence GNU GPLv3 (FFmpeg sidecar)
 │
 ├── scripts/
 │   └── test-target-size.ps1            # Suite E2E FFmpeg (15 scénarios 1080p/4K Discord/WhatsApp/Gmail)
