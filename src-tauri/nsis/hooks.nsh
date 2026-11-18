@@ -1,3 +1,7 @@
+!macro NSIS_HOOK_PREINSTALL
+  Delete "$INSTDIR\tauri-app.exe"
+!macroend
+
 !macro NSIS_HOOK_POSTUNINSTALL
   DeleteRegKey HKCU "Software\Classes\SystemFileAssociations\.mp4\shell\MediaForge"
   DeleteRegKey HKCU "Software\Classes\SystemFileAssociations\.mkv\shell\MediaForge"

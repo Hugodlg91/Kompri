@@ -100,7 +100,7 @@ MediaForge.exe --action compress --preset whatsapp --wait -- "C:\Videos\clip.mp4
 | Video & audio conversion | FFmpeg (bundled sidecar) |
 | Image conversion | Rust `image` crate v0.25 |
 | Settings, history & single-instance | `tauri-plugin-store`, `tauri-plugin-single-instance`, `winreg` (Windows) |
-| Tests | Vitest (51 tests) + Rust `#[cfg(test)]` (57 tests) |
+| Tests | Vitest (55 tests) + Rust `#[cfg(test)]` (63 tests) |
 
 ---
 

@@ -26,6 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Verify tag matches tauri.conf.json version
         shell: bash
         run: |
@@ -35,11 +40,6 @@ jobs:
             echo "::error::Tag ${GITHUB_REF_NAME} does not match tauri.conf.json version (${EXPECTED_TAG})"
             exit 1
           fi
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
 
       - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
