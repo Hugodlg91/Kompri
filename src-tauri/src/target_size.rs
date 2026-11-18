@@ -11,6 +11,12 @@ pub const BYTES_PER_MB: f64 = 1_000_000.0;
 /// Safety factor (95%) reserving 5% for container headers, moov atom, and VBR fluctuations.
 pub const CONTAINER_SAFETY_FACTOR: f64 = 0.95;
 
+/// Gentle spatial-temporal 3D denoise filter applied before scaling in Max Quality mode.
+pub const MAX_QUALITY_DENOISE_FILTER: &str = "hqdn3d=0.6:0.4:0.9:0.6";
+
+/// Subtle luma-only unsharp mask applied after downscaling in Max Quality mode.
+pub const MAX_QUALITY_UNSHARP_FILTER: &str = "unsharp=3:3:0.25:3:3:0.0";
+
 /// Minimum allowed video bitrate (kbps) before rejecting the target size as unachievable.
 const MIN_VIDEO_KBPS: i64 = 30;
 
@@ -220,7 +226,7 @@ fn escape_x265_param_value(raw: &str) -> String {
 }
 
 /// Build FFmpeg CLI arguments for Pass 1 (`pass == 1`) or Pass 2 (`pass == 2`)
-/// of a bitrate-budgeted 2-pass encode.
+/// of a bitrate-budgeted 2-pass encode using the default (`max_quality = false`) profile.
 pub fn build_two_pass_ffmpeg_args(
     input_path: &str,
     output_path: &str,
@@ -229,6 +235,32 @@ pub fn build_two_pass_ffmpeg_args(
     pass: u8,
     pass_dir: &Path,
     video_kbps: u32,
+) -> Vec<String> {
+    build_two_pass_ffmpeg_args_with_options(
+        input_path,
+        output_path,
+        plan,
+        codec,
+        pass,
+        pass_dir,
+        video_kbps,
+        false,
+    )
+}
+
+/// Build FFmpeg CLI arguments for Pass 1 (`pass == 1`) or Pass 2 (`pass == 2`)
+/// of a bitrate-budgeted 2-pass encode, optionally enabling Max Quality mode
+/// (`-preset slow`, pre-scale 3D denoise, and post-scale luma unsharp when downscaled).
+#[allow(clippy::too_many_arguments)]
+pub fn build_two_pass_ffmpeg_args_with_options(
+    input_path: &str,
+    output_path: &str,
+    plan: &TargetSizeEstimate,
+    codec: Option<&str>,
+    pass: u8,
+    pass_dir: &Path,
+    video_kbps: u32,
+    max_quality: bool,
 ) -> Vec<String> {
     let is_pass_one = pass == 1;
     let pass_num = if is_pass_one { "1" } else { "2" };
@@ -251,24 +283,29 @@ pub fn build_two_pass_ffmpeg_args(
         "yuv420p".into(),
     ];
 
-    let vf = match (plan.downscaled, plan.fps_reduced) {
-        (true, true) => Some(format!(
-            "scale={}:{},fps={}",
-            plan.target_width, plan.target_height, plan.target_fps
-        )),
-        (true, false) => Some(format!(
+    let mut filters: Vec<String> = Vec::new();
+    if max_quality {
+        filters.push(MAX_QUALITY_DENOISE_FILTER.to_string());
+    }
+    if plan.downscaled {
+        filters.push(format!(
             "scale={}:{}",
             plan.target_width, plan.target_height
-        )),
-        (false, true) => Some(format!("fps={}", plan.target_fps)),
-        (false, false) => None,
-    };
-    if let Some(filter) = vf {
-        args.extend(["-vf".into(), filter]);
+        ));
+        if max_quality {
+            filters.push(MAX_QUALITY_UNSHARP_FILTER.to_string());
+        }
+    }
+    if plan.fps_reduced {
+        filters.push(format!("fps={}", plan.target_fps));
+    }
+    if !filters.is_empty() {
+        args.extend(["-vf".into(), filters.join(",")]);
     }
 
     let maxrate_kbps = (u64::from(video_kbps) * 105 / 100).max(u64::from(video_kbps));
     let bufsize_kbps = u64::from(video_kbps) * 2;
+    let preset = if max_quality { "slow" } else { "medium" };
     let use_h265 = matches!(
         codec.map(|c| c.trim().to_ascii_lowercase()).as_deref(),
         Some("h265" | "hevc" | "libx265")
@@ -287,7 +324,7 @@ pub fn build_two_pass_ffmpeg_args(
             "-bufsize".into(),
             format!("{bufsize_kbps}k"),
             "-preset".into(),
-            "medium".into(),
+            preset.into(),
             "-x265-params".into(),
             format!("pass={pass_num}:stats={escaped_stats}"),
         ]);
@@ -303,7 +340,7 @@ pub fn build_two_pass_ffmpeg_args(
             "-bufsize".into(),
             format!("{bufsize_kbps}k"),
             "-preset".into(),
-            "medium".into(),
+            preset.into(),
             "-pass".into(),
             pass_num.into(),
             "-passlogfile".into(),
@@ -787,5 +824,123 @@ mod tests {
         assert!(!pass2
             .iter()
             .any(|a| a == "-y" || a == "-y.mp4" || a == "-y_discord.mp4"));
+    }
+
+    #[test]
+    fn test_build_two_pass_ffmpeg_args_max_quality_filters_and_preset() {
+        let base_plan = TargetSizeEstimate {
+            already_under_target: false,
+            source_size_bytes: 50_000_000,
+            target_bytes: 20_000_000,
+            budget_bytes: 19_000_000,
+            video_kbps: 1200,
+            audio_kbps: 96,
+            target_width: 1280,
+            target_height: 720,
+            target_fps: 30,
+            downscaled: true,
+            fps_reduced: true,
+        };
+        let pass_dir = Path::new("kompri-maxq-pass");
+
+        // 1. max_quality = false (standard): preset medium, scale+fps only
+        let std_args = build_two_pass_ffmpeg_args_with_options(
+            "in.mp4",
+            "out.mp4",
+            &base_plan,
+            Some("h264"),
+            1,
+            pass_dir,
+            base_plan.video_kbps,
+            false,
+        );
+        assert!(has_arg_pair(&std_args, "-preset", "medium"));
+        assert!(has_arg_pair(&std_args, "-vf", "scale=1280:720,fps=30"));
+
+        // 2. max_quality = true with downscaled=true, fps_reduced=true (H.264)
+        let mq_scaled_fps_h264 = build_two_pass_ffmpeg_args_with_options(
+            "in.mp4",
+            "out.mp4",
+            &base_plan,
+            Some("h264"),
+            1,
+            pass_dir,
+            base_plan.video_kbps,
+            true,
+        );
+        assert!(has_arg_pair(&mq_scaled_fps_h264, "-c:v", "libx264"));
+        assert!(has_arg_pair(&mq_scaled_fps_h264, "-preset", "slow"));
+        assert!(has_arg_pair(
+            &mq_scaled_fps_h264,
+            "-vf",
+            "hqdn3d=0.6:0.4:0.9:0.6,scale=1280:720,unsharp=3:3:0.25:3:3:0.0,fps=30"
+        ));
+
+        // 3. max_quality = true with downscaled=true, fps_reduced=false (H.265)
+        let plan_downscaled_only = TargetSizeEstimate {
+            downscaled: true,
+            fps_reduced: false,
+            ..base_plan
+        };
+        let mq_scaled_h265 = build_two_pass_ffmpeg_args_with_options(
+            "in.mp4",
+            "out.mp4",
+            &plan_downscaled_only,
+            Some("h265"),
+            2,
+            pass_dir,
+            base_plan.video_kbps,
+            true,
+        );
+        assert!(has_arg_pair(&mq_scaled_h265, "-c:v", "libx265"));
+        assert!(has_arg_pair(&mq_scaled_h265, "-preset", "slow"));
+        assert!(has_arg_pair(
+            &mq_scaled_h265,
+            "-vf",
+            "hqdn3d=0.6:0.4:0.9:0.6,scale=1280:720,unsharp=3:3:0.25:3:3:0.0"
+        ));
+
+        // 4. max_quality = true with downscaled=false, fps_reduced=true (no unsharp when not downscaled)
+        let plan_fps_only = TargetSizeEstimate {
+            downscaled: false,
+            fps_reduced: true,
+            ..base_plan
+        };
+        let mq_fps_only = build_two_pass_ffmpeg_args_with_options(
+            "in.mp4",
+            "out.mp4",
+            &plan_fps_only,
+            Some("h264"),
+            2,
+            pass_dir,
+            base_plan.video_kbps,
+            true,
+        );
+        assert!(has_arg_pair(&mq_fps_only, "-preset", "slow"));
+        assert!(has_arg_pair(
+            &mq_fps_only,
+            "-vf",
+            "hqdn3d=0.6:0.4:0.9:0.6,fps=30"
+        ));
+
+        // 5. max_quality = true with downscaled=false, fps_reduced=false (hqdn3d still included, no unsharp)
+        let plan_no_scale_no_fps = TargetSizeEstimate {
+            downscaled: false,
+            fps_reduced: false,
+            ..base_plan
+        };
+        let mq_plain = build_two_pass_ffmpeg_args_with_options(
+            "in.mp4",
+            "out.mp4",
+            &plan_no_scale_no_fps,
+            Some("h265"),
+            1,
+            pass_dir,
+            base_plan.video_kbps,
+            true,
+        );
+        assert!(has_arg_pair(&mq_plain, "-c:v", "libx265"));
+        assert!(has_arg_pair(&mq_plain, "-preset", "slow"));
+        assert!(has_arg_pair(&mq_plain, "-vf", "hqdn3d=0.6:0.4:0.9:0.6"));
     }
 }

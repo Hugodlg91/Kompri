@@ -16,6 +16,10 @@ pub struct CliRequest {
     pub action: CliAction,
     pub files: Vec<String>,
     pub wait: bool,
+    /// `Some(..)` when `--max-quality[=bool]` was passed; `None` falls back to the
+    /// "Max quality" default from Settings (e.g. Explorer context-menu commands).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_quality: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
@@ -67,6 +71,7 @@ pub fn parse_cli_args(args: &[String]) -> Option<CliRequest> {
     let mut preset: Option<String> = None;
     let mut to: Option<String> = None;
     let mut wait = false;
+    let mut max_quality: Option<bool> = None;
     let mut files: Vec<String> = Vec::new();
     let mut positional_only = false;
 
@@ -97,6 +102,14 @@ pub fn parse_cli_args(args: &[String]) -> Option<CliRequest> {
             to = Some(val.to_string());
         } else if arg == "--wait" || arg == "--headless" {
             wait = true;
+        } else if arg == "--max-quality" {
+            max_quality = Some(true);
+        } else if let Some(val) = arg.strip_prefix("--max-quality=") {
+            match val.trim().to_ascii_lowercase().as_str() {
+                "true" | "1" => max_quality = Some(true),
+                "false" | "0" => max_quality = Some(false),
+                _ => {}
+            }
         } else if arg.starts_with('-') {
             // Ignore unknown flags injected by OS/WebView/single-instance launchers.
             continue;
@@ -132,6 +145,7 @@ pub fn parse_cli_args(args: &[String]) -> Option<CliRequest> {
         action,
         files,
         wait,
+        max_quality,
     })
 }
 
@@ -275,6 +289,7 @@ mod tests {
                 },
                 files: vec![r"C:\My Videos\clip 1.mp4".to_string()],
                 wait: false,
+                max_quality: None,
             }
         );
     }
@@ -301,6 +316,7 @@ mod tests {
                 },
                 files: vec!["file1.wav".to_string(), "file2.wav".to_string()],
                 wait: true,
+                max_quality: None,
             }
         );
     }
@@ -321,6 +337,7 @@ mod tests {
                 action: CliAction::Open,
                 files: vec![r"\\server\share\vidéo accentuée.mkv".to_string()],
                 wait: false,
+                max_quality: None,
             }
         );
     }
@@ -345,7 +362,98 @@ mod tests {
                 },
                 files: vec!["clip.mov".to_string()],
                 wait: true,
+                max_quality: None,
             }
+        );
+    }
+
+    #[test]
+    fn test_parse_compress_without_max_quality_flag_defers_to_settings() {
+        let req = parse_cli_args(&s(&[
+            "Kompri.exe",
+            "--action",
+            "compress",
+            "--preset",
+            "discord",
+            "--",
+            "clip.mp4",
+        ]))
+        .expect("should parse");
+        assert_eq!(req.max_quality, None);
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(!json.contains("max_quality"), "{json}");
+    }
+
+    #[test]
+    fn test_parse_compress_with_max_quality_flag() {
+        let args_flag = s(&[
+            "Kompri.exe",
+            "--action",
+            "compress",
+            "--preset",
+            "discord",
+            "--max-quality",
+            "clip.mp4",
+        ]);
+        let req_flag = parse_cli_args(&args_flag).expect("should parse --max-quality");
+        assert_eq!(req_flag.max_quality, Some(true));
+
+        let args_eq_true = s(&[
+            "Kompri.exe",
+            "--action=compress",
+            "--preset=discord",
+            "--max-quality=true",
+            "clip.mp4",
+        ]);
+        assert_eq!(
+            parse_cli_args(&args_eq_true)
+                .expect("should parse --max-quality=true")
+                .max_quality,
+            Some(true)
+        );
+
+        let args_eq_1 = s(&[
+            "Kompri.exe",
+            "--action=compress",
+            "--preset=discord",
+            "--max-quality=1",
+            "clip.mp4",
+        ]);
+        assert_eq!(
+            parse_cli_args(&args_eq_1)
+                .expect("should parse --max-quality=1")
+                .max_quality,
+            Some(true)
+        );
+
+        let args_eq_false = s(&[
+            "Kompri.exe",
+            "--action=compress",
+            "--preset=discord",
+            "--max-quality",
+            "--max-quality=false",
+            "clip.mp4",
+        ]);
+        assert_eq!(
+            parse_cli_args(&args_eq_false)
+                .expect("should parse --max-quality=false")
+                .max_quality,
+            Some(false)
+        );
+
+        let args_eq_0 = s(&[
+            "Kompri.exe",
+            "--action=compress",
+            "--preset=discord",
+            "--max-quality",
+            "--max-quality=0",
+            "clip.mp4",
+        ]);
+        assert_eq!(
+            parse_cli_args(&args_eq_0)
+                .expect("should parse --max-quality=0")
+                .max_quality,
+            Some(false)
         );
     }
 
@@ -467,6 +575,7 @@ mod tests {
             },
             files: vec!["clip.mp4".to_string()],
             wait: true,
+            max_quality: Some(true),
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains(r#""kind":"compress""#), "{json}");
@@ -506,6 +615,7 @@ mod tests {
                 },
                 files: vec!["-y.mp4".to_string()],
                 wait: false,
+                max_quality: None,
             }
         );
         assert_eq!(
