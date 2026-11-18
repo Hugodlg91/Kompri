@@ -25,6 +25,27 @@ It is designed for anyone who needs reliable, fast media conversion without sacr
 
 ---
 
+## Installation & First Launch
+
+Download the latest installer for your platform from the [**Releases**](https://github.com/Hugodlg91/MediaForge/releases/latest) page:
+
+- **Windows**: `MediaForge_1.2.1_x64-setup.exe` (recommended) or `MediaForge_1.2.1_x64_en-US.msi`
+- **macOS (Apple Silicon)**: `MediaForge_1.2.1_aarch64.dmg`
+- **Linux**: `MediaForge_1.2.1_amd64.AppImage` or `MediaForge_1.2.1_amd64.deb`
+
+> [!NOTE]
+> **First-launch security warning (Windows SmartScreen & macOS Gatekeeper)**
+> MediaForge is an independent, free project and its binaries are not signed with a paid commercial code-signing certificate. Your OS will display a standard warning the very first time you launch it:
+>
+> - **Windows (SmartScreen — *"Windows protected your PC"* / *"Windows a protégé votre ordinateur"*)**:
+>   Click **More info** (*« Informations complémentaires »*) → **Run anyway** (*« Exécuter quand même »*).
+> - **macOS (Gatekeeper — *"MediaForge cannot be opened because the developer cannot be verified"* / *"est endommagé"*)**:
+>   Move `MediaForge.app` to `/Applications`, then either:
+>   - Run in Terminal: `xattr -cr /Applications/MediaForge.app`
+>   - Or **Right-click → Open** on `MediaForge.app` (or allow it in **System Settings → Privacy & Security → Open Anyway**).
+
+---
+
 ## Features
 
 ### 🖼️ Images
