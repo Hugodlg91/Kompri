@@ -4,6 +4,8 @@ scripts/*
 !scripts/test-context-menu.ps1
 !scripts/record-demo/
 !scripts/record-demo/**
+!scripts/quality-bench/
+!scripts/quality-bench/**
 
 # Scaffold assets from create-tauri-app (replaced by real app assets)
 public/tauri.svg
