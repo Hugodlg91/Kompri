@@ -77,7 +77,7 @@ await sleep(1600);
 // 5. History
 await click(page.getByRole("button", { name: /^\s*hist/i }).first(), 16);
 await sleep(700);
-const [hx, hy] = await center(page.getByText("9.1 MB").first());
+const [hx, hy] = await center(page.getByText("18.3 MB").first());
 await m.move(hx + 6, hy + 4, { steps: 15 });
 await sleep(2400);
 const duration = (Date.now() - t0) / 1000 - start;
