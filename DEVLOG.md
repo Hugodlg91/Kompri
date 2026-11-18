@@ -336,7 +336,7 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
 - [x] **Validation finale v1.2.1** : **63/63 tests unitaires Rust** + **55/55 tests Vitest** passent avec **0 warning Clippy** et **0 erreur TypeScript**.
 
 
-### 🔄 Étape 18 — v1.2.2 : Renommage MediaForge → Kompri (EN COURS — en attente de validation de Hugo)
+### ✅ Étape 18 — v1.2.2 : Renommage MediaForge → Kompri (TERMINÉE — validée par Hugo ; `main` local avancé en fast-forward, non poussé)
 - [x] **Branche & Planification** : branche `chore/rename-kompri` créée depuis `main` (`3c73c47`, v1.2.1), plan dans `docs/PLAN-v1.2.2.md`. Lot limité au renommage, aucune fonctionnalité.
 - [x] **Travail du lot 2 mis de côté** : la branche locale `feat/v1.3.0-quality` contenait du travail non commité (Discord 20 Mo, Qualité max) commencé avant le renommage. Il a été sauvegardé tel quel dans un commit `wip(v1.3.0)` (`7a42764`) sur cette branche, à rebaser sur `main` une fois le lot 1 mergé.
 - [x] **Inventaire des occurrences `mediaforge`** (`git grep -i`, 38 fichiers) :
@@ -375,6 +375,52 @@ Après TOUTE tâche, mettre ce fichier à jour immédiatement.
   - Non testé ici : l'appli Kompri lancée réellement (la réécriture des clés au démarrage est couverte par les tests unitaires sur le vrai registre), le `.msi` (UpgradeCode vérifié dans `main.wxs` : `a779c94a-…`, `MajorUpgrade`), macOS et Linux.
 - [x] **Build Tauri complet** : `npm run tauri build` → `Kompri_1.2.2_x64-setup.exe` + `Kompri_1.2.2_x64_en-US.msi` (makensis compile le hook sans erreur).
 - [x] **Validation** : **65/65 tests Rust** (dont 2 nouveaux de migration) + **55/55 tests Vitest**, **0 warning Clippy** (`--all-targets -D warnings`), **0 erreur TypeScript**.
+
+---
+
+### 🔄 Étape 19 — v1.3.0 : Discord 20 Mo, Qualité max & avertissement H.265 (EN COURS — en attente de validation de Hugo)
+- [x] **Branche** : `feat/v1.3.0-quality` recréée depuis `main` après le lot 1 (renommage Kompri, v1.2.2). Le WIP mis de côté sur l'ancienne branche a été réutilisé et adapté ; l'ancienne branche est conservée localement sous `wip/v1.3.0-pre-rename`.
+- [x] **Chantier 1 — Discord 20 Mo** :
+  - Migration côté Rust, au démarrage, persistée via le marqueur `discord_20mb_migrated` : `preset_discord_mb` passe de 10 à 20 **uniquement si la valeur vaut exactement 10**. Une valeur personnalisée (8, 12, 15…) est conservée.
+  - Tests : `test_discord_migration_*` dans `lib.rs` (migration 10 → 20, valeur personnalisée conservée, exécution unique).
+  - Réécriture des libellés du menu clic droit au démarrage : `test_startup_sync_rewrites_old_discord_10mb_label` (clé `HKCU` « Discord (10 MB) » → « Discord (20 MB) »).
+  - WhatsApp (16 Mo) et Gmail (25 Mo) inchangés.
+- [x] **Chantier 2 — Avertissement H.265** : avertissement non bloquant en mode taille cible, texte FR exact « Meilleure qualité à taille égale, mais certains destinataires ne pourront pas lire la vidéo. ». H.264 reste le défaut.
+- [x] **Chantier 3 — Qualité max** :
+  - Interrupteur dans le convertisseur vidéo (mode taille cible), réglage par défaut Settings `target_size_max_quality` (défaut `false`).
+  - Flag CLI `--max-quality[=bool]` : sans valeur = activé ; absent = réglage des Settings (utile pour le menu clic droit, qui n'a pas de flag).
+  - Filtres : `-preset slow` au lieu de `medium` ; débruitage `hqdn3d=0.6:0.4:0.9:0.6` avant la mise à l'échelle. La netteté `unsharp` a été retirée après mesure.
+  - Smoke test multi-OS enrichi dans `release.yml` : `hqdn3d`, `scale`, `fps` et un encodage `slow` sur Windows, macOS et Linux.
+- [x] **Mesures de qualité** (Discord 20 Mo, tous les fichiers de sortie `< 20 000 000` o) :
+
+| Clip | Codec | Mode | Taille (o) | VMAF | SSIM | PSNR-Y | Temps (s) |
+|---|---|---|---:|---:|---:|---:|---:|
+| 10 s 1080p60 | H.264 | Standard | 18 810 674 | 99,89 | 0,99767 | 42,80 | 5,3 |
+| 10 s 1080p60 | H.264 | Qualité max | 18 812 252 | 99,89 | 0,99755 | 43,08 | 7,6 |
+| 60 s 1080p60 | H.264 | Standard | 19 202 630 | 74,99 | 0,97952 | 28,43 | 22,0 |
+| 60 s 1080p60 | H.264 | Qualité max | 19 133 430 | 76,64 | 0,98031 | 28,92 | 31,4 |
+| 60 s 1080p60 | H.265 | Standard | 18 378 895 | 92,50 | 0,98646 | 34,82 | 67,5 |
+| 60 s 1080p60 | H.265 | Qualité max | 18 023 169 | 96,78 | 0,99050 | 38,50 | 185,2 |
+| 180 s 1080p60 (→ 720p30) | H.264 | Standard | 19 214 680 | 53,71 | 0,97836 | 23,27 | 24,9 |
+| 180 s 1080p60 (→ 720p30) | H.264 | Qualité max | 19 120 557 | 55,31 | 0,97874 | 23,35 | 96,7 |
+
+  - Sur le clip de 10 s, le VMAF est égal (99,89) et le PSNR-Y plus élevé. Le SSIM est plus bas de 0,00012 : c'est l'effet du preset `slow`, de l'ordre de deux fois le bruit de mesure entre deux passages.
+- [x] **Méthode de mesure** : code 2 passes réel de l'application (`src-tauri/examples/target_size_bench.rs`), clips générés par `scripts/quality-bench/make-clips.ps1`, référence convertie aux fps et à la résolution de sortie pour un VMAF aligné image par image. VMAF disponible (libvmaf), complété par SSIM et PSNR-Y. Le clip de 180 s déclenche le downscaling.
+- [x] **Démo** : ré-enregistrée sur le clip de 60 s du banc (160 997 966 o, reproductible). Le clip original de 122 773 228 o est introuvable. Encodage 20 Mo → 19 202 630 o.
+- [x] **Versions & docs** : version 1.3.0 dans `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` ; CHANGELOG [1.3.0] ; README (Discord 20 Mo, Qualité max, avertissement H.265, flag `--max-quality`, noms d'installeurs 1.3.0, tests Vitest 60 et Rust 73) ; `docs/PLAN-v1.3.0.md` mis à jour.
+- [x] **Décisions techniques autonomes** :
+  1. Le `main` local a été avancé (fast-forward) sur `chore/rename-kompri` : Hugo a indiqué « Merged », mais la branche n'était mergée ni en local ni sur GitHub. Rien n'a été poussé.
+  2. Migration Discord côté Rust (au démarrage, persistée, une seule fois via `discord_20mb_migrated`) plutôt que dans le frontend : la CLI et le menu clic droit lisent aussi les réglages, et un utilisateur qui remet 10 Mo ensuite est respecté.
+  3. `--max-quality` sans valeur = activé ; absent = réglage par défaut des Settings (utile pour le menu clic droit).
+  4. Netteté (`unsharp`) retirée : toute valeur positive baissait le SSIM sur le clip réduit (le VMAF montait d'environ 2 points, biais connu du VMAF envers la netteté). Débruitage gardé à `0.6:0.4:0.9:0.6` (plus fort = moins bon).
+  5. Clip source de la démo : l'original de 122 773 228 o est introuvable ; la démo utilise le clip 60 s du banc (160 997 966 o, reproductible), 20 Mo → 19 202 630 o.
+  6. Travail en mode orchestrateur : sous-agents Haiku (sources, docs), Sonnet (frontend, CI, démo), Opus (mesures qualité, revue finale).
+- [x] **Points signalés sans modification** :
+  - **WhatsApp 16 Mo** : la FAQ officielle de WhatsApp n'a pas pu être lue. Des sources secondaires indiquent que la limite de 16 Mo est obsolète (limites plus élevées depuis 2022). Non modifié ; à vérifier par Hugo.
+  - **Discord 20 Mo** : FAQ du Centre d'aide « File Attachments » (support.discord.com/hc/en-us/articles/25444343291031) indique 20 Mo sans Nitro. La page a renvoyé 403 ; confirmé via le résumé de recherche. Documentation développeur (docs.discord.com/developers/reference) : « The default limit is 20 MiB ».
+  - **Gmail 25 Mo** : confirmé (support.google.com/mail/answer/6584).
+- [ ] **Revue indépendante (Opus)** : à venir
+- [ ] **Build Tauri complet** : à venir
 
 ---
 

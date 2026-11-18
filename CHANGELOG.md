@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.3.0] - 2026-11-18
+
+### Changed
+- **Discord preset 10 MB → 20 MB.** Discord's free upload limit is 20 MB since August 2026 (Discord developer docs: "The default limit is 20 MiB"). WhatsApp (16 MB) and Gmail (25 MB) are unchanged.
+  - Existing users: if the Discord preset was still the old default (exactly 10 MB), it becomes 20 MB on first launch. This runs once. A customized value is kept.
+  - Explorer right-click labels now read "Discord (20 MB)" in the 5 languages and are rewritten at startup.
+
+### Added
+- **"Max quality (slower)" for target-size compression.** A switch in the Video converter, a default in Settings, and a `--max-quality[=true|false]` CLI flag. Without the flag (for example from the right-click menu), the Settings default applies. Off by default. It uses the x264/x265 `slow` preset instead of `medium` and a light `hqdn3d` denoise before resizing. The target bitrate budget, the size check and the -10% retry are unchanged. Post-resize sharpening was evaluated and NOT shipped, because it lowered SSIM on downscaled clips.
+- **H.265 warning.** Selecting H.265 shows a short, non-blocking warning: "Better quality at the same size, but some recipients won't be able to play the video." HEVC playback (for example on Discord) depends on the viewer's hardware. H.264 stays the default.
+- **Release smoke test and quality bench.** The release smoke test checks the `hqdn3d`, `scale` and `fps` filters and a `slow`-preset encode on Windows, macOS and Linux. A reproducible quality bench lives in `scripts/quality-bench`.
+
+### Quality measurements (Discord 20 MB target)
+Clips are 1080p60 unless noted. All outputs are below 20,000,000 bytes. VMAF, SSIM and PSNR-Y compare each output with its source clip.
+
+| Clip | Codec | Mode | Size (B) | VMAF | SSIM | PSNR-Y | Encode (s) |
+|---|---|---|---:|---:|---:|---:|---:|
+| 10 s 1080p60 | H.264 | Standard | 18,810,674 | 99.89 | 0.99767 | 42.80 | 5.3 |
+| 10 s 1080p60 | H.264 | Max quality | 18,812,252 | 99.89 | 0.99755 | 43.08 | 7.6 |
+| 60 s 1080p60 | H.264 | Standard | 19,202,630 | 74.99 | 0.97952 | 28.43 | 22.0 |
+| 60 s 1080p60 | H.264 | Max quality | 19,133,430 | 76.64 | 0.98031 | 28.92 | 31.4 |
+| 60 s 1080p60 | H.265 | Standard | 18,378,895 | 92.50 | 0.98646 | 34.82 | 67.5 |
+| 60 s 1080p60 | H.265 | Max quality | 18,023,169 | 96.78 | 0.99050 | 38.50 | 185.2 |
+| 180 s 1080p60 (→720p30) | H.264 | Standard | 19,214,680 | 53.71 | 0.97836 | 23.27 | 24.9 |
+| 180 s 1080p60 (→720p30) | H.264 | Max quality | 19,120,557 | 55.31 | 0.97874 | 23.35 | 96.7 |
+
+On the 10 s clip, VMAF is equal (99.89) and PSNR is higher with Max quality. SSIM is 0.00012 lower, which is the effect of the `slow` preset and about twice the run-to-run noise.
+
+---
+
 ## [1.2.2] - 2026-11-18
 
 ### Changed

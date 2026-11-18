@@ -20,7 +20,7 @@ Kompri/
 ├── vite.config.ts                      # Config Vite + Vitest (jsdom, globals)
 ├── tsconfig.json                       # Config TypeScript (app)
 ├── tsconfig.node.json                  # Config TypeScript (outils de build)
-├── package.json                        # Dépendances npm (kompri v1.2.2) + scripts
+├── package.json                        # Dépendances npm (kompri v1.3.0) + scripts
 ├── package-lock.json                   # Lockfile npm
 │
 ├── DEVLOG.md                           # Journal de développement (étapes 1-17)
