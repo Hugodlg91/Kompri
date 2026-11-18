@@ -69,7 +69,7 @@
   - Passage de la version à **`1.2.1`** dans `package.json`, `src-tauri/Cargo.toml` et `src-tauri/tauri.conf.json`.
   - **Critère de fini** : tous les fichiers de doc et de version sont en `1.2.1`.
 
-- [ ] **Étape 7 — Revue indépendante (`independent-code-reviewer`) & Build Tauri Release final**
+- [x] **Étape 7 — Revue indépendante (`independent-code-reviewer`) & Build Tauri Release final**
   - Audit complet du `git diff v1.2.0..HEAD` par un sous-agent relecteur indépendant n'ayant pas écrit le code.
-  - Correction de toute anomalie détectée et validation finale : `npx tsc --noEmit`, `npx vitest run`, `cargo test`, `cargo clippy -- -D warnings`, et `tauri build`.
+  - Correction de toute anomalie détectée (`package-lock.json` sync, `vite build` dans `ci.yml`, `assetProtocol` dans `tauri.conf.json`, `NSIS_HOOK_PREINSTALL` nettoyage `tauri-app.exe`) et validation finale : `npx tsc --noEmit`, `npx vitest run`, `cargo test`, `cargo clippy -- -D warnings`, et `tauri build`.
   - **Critère de fini** : 0 erreur, 0 warning, build Release `1.2.1` généré, branche non mergée et sans tag poussé.

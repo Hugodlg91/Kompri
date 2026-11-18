@@ -16,9 +16,9 @@ Le binaire doit être nommé avec le **triple de la cible** :
 ## Téléchargement des binaires statiques
 
 ### Windows
-Télécharger depuis **https://www.gyan.dev/ffmpeg/builds/** (ffmpeg-release-essentials.zip)
+Télécharger depuis **https://www.gyan.dev/ffmpeg/builds/** (`ffmpeg-release-essentials.zip`)
 ou **BtbN builds** : https://github.com/BtbN/FFmpeg-Builds/releases
-- Choisir `ffmpeg-n7.x-latest-win64-lgpl-shared.zip` (ou essentials)
+- Choisir `ffmpeg-n7.x-latest-win64-gpl.zip` (ou `ffmpeg-release-essentials.zip` — build statique GPL incluant `libx264` et `libx265`)
 - Extraire `ffmpeg.exe` et `ffprobe.exe` depuis le dossier `bin/`
 - Renommer selon la convention ci-dessus
 
