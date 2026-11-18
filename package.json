@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "vitest run"
+    "test": "vitest run",
+    "record-demo": "node scripts/record-demo/record.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -29,6 +30,7 @@
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
     "jsdom": "^28.1.0",
+    "playwright": "^1.63.0",
     "tailwindcss": "^4.2.1",
     "typescript": "~5.8.3",
     "vite": "^7.0.4",

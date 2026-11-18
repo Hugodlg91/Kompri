@@ -1,5 +1,9 @@
 # One-off scripts (applied, no longer needed in repo)
-scripts/
+scripts/*
+!scripts/test-target-size.ps1
+!scripts/test-context-menu.ps1
+!scripts/record-demo/
+!scripts/record-demo/**
 
 # Scaffold assets from create-tauri-app (replaced by real app assets)
 public/tauri.svg

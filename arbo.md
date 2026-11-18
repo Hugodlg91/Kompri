@@ -33,13 +33,22 @@ MediaForge/
 ├── docs/
 │   ├── PLAN-v1.2.md                    # Plan d'architecture et résultats E2E de la v1.2.0
 │   ├── PLAN-v1.2.1.md                  # Plan de correctifs et finition de la v1.2.1
-│   └── SCREENSHOTS_CHECKLIST.md        # Checklist des captures d'écran et GIF de démo
+│   ├── SCREENSHOTS_CHECKLIST.md        # Checklist des captures d'écran et GIF de démo
+│   └── assets/
+│       ├── mediaforge-demo.gif         # Démo animée du README (générée via npm run record-demo)
+│       └── mediaforge-demo.mp4         # Version MP4 de la démo
 │
 ├── licenses/
 │   └── FFmpeg-GPLv3.txt                # Texte complet de la licence GNU GPLv3 (FFmpeg sidecar)
 │
 ├── scripts/
-│   └── test-target-size.ps1            # Suite E2E FFmpeg (15 scénarios 1080p/4K Discord/WhatsApp/Gmail)
+│   ├── test-target-size.ps1            # Suite E2E FFmpeg (15 scénarios 1080p/4K Discord/WhatsApp/Gmail)
+│   └── record-demo/                    # Harness Playwright + Vite pour régénérer la démo du README
+│       ├── README.md
+│       ├── index.html
+│       ├── demo-main.ts
+│       ├── cursor.js
+│       └── record.mjs
 │
 ├── resource/
 │   └── app-icon.png                    # Source 1024×1024 de l'icône de l'app

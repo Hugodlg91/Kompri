@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MediaForge</title>
+    <script>
+      (function () {
+        var t = localStorage.getItem("mf-theme");
+        document.documentElement.setAttribute("data-theme", (!t || t === "dark") ? "dark" : "light");
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/scripts/record-demo/demo-main.ts"></script>
+  </body>
+</html>

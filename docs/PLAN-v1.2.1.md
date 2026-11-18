@@ -18,7 +18,8 @@
   - **Vérification `otool -L` sur macOS** : étape CI dédiée vérifiant que `otool -L` sur les deux binaires ne contient aucune référence à `/opt/homebrew` ni `/usr/local` (échec immédiat du job sinon).
   - **Smoke test sur les 3 OS (Windows, macOS, Linux)** dans `release.yml` :
     1. Exécution de `ffmpeg -version` et `ffprobe -version` sur les binaires embarqués.
-    2. Test de conversion réelle : génération d'une vidéo test de 1 s avec `-f lavfi -i testsrc2=size=320x240:rate=30 -f lavfi -i sine=frequency=440 -t 1` via le binaire `ffmpeg` embarqué et validation du fichier produit via le binaire `ffprobe` embarqué.
+    2. Vérification via `ffmpeg -hide_banner -encoders` de la présence des 10 encodeurs vidéo et audio utilisés par MediaForge (`libx264`, `libx265`, `libvpx-vp9`, `mpeg4`, `aac`, `libmp3lame`, `flac`, `libvorbis`, `libopus`, `pcm_s16le`).
+    3. Test de conversion réelle : génération d'une vidéo test de 1 s avec `-f lavfi -i testsrc2=size=320x240:rate=30 -f lavfi -i sine=frequency=440 -t 1` via le binaire `ffmpeg` embarqué et validation du fichier produit via le binaire `ffprobe` embarqué.
   - **Vérification cohérence tag/version** dans `release.yml` (évite le mélange d'assets observé sur la release `v1.1.0` lorsque le tag et `tauri.conf.json` différaient temporairement).
   - **Mise à jour de `src-tauri/binaries/README.md`** avec la nouvelle procédure statique macOS et la vérification `otool -L`.
   - **Nouveau workflow `.github/workflows/ci.yml`** déclenché sur `push` et `pull_request` (`windows-latest` et `ubuntu-22.04`) exécutant `npx tsc --noEmit`, `npx vitest run`, `cargo test` et `cargo clippy -- -D warnings` (avec création des placeholders binaires FFmpeg pour `cargo test`/`clippy`).
@@ -69,7 +70,13 @@
   - Passage de la version à **`1.2.1`** dans `package.json`, `src-tauri/Cargo.toml` et `src-tauri/tauri.conf.json`.
   - **Critère de fini** : tous les fichiers de doc et de version sont en `1.2.1`.
 
-- [x] **Étape 7 — Revue indépendante (`independent-code-reviewer`) & Build Tauri Release final**
+- [x] **Étape 7 (Correctif 8) — Intégration de la démo du README (`scripts/record-demo/` & `docs/assets/mediaforge-demo.gif`)**
+  - Ajout du script `"record-demo": "node scripts/record-demo/record.mjs"` et de `"playwright": "^1.63.0"` (`devDependencies`) dans `package.json`.
+  - Exclusion de `scripts/` dans `tsconfig.json` et `vite.config.ts` (`test.exclude`).
+  - Exécution de `npm run record-demo` et intégration de `docs/assets/mediaforge-demo.gif` et `.mp4` dans `README.md`.
+  - **Critère de fini** : `npm run record-demo` régénère les assets sans erreur, `tsc --noEmit`, `vitest run` et `npm run build` ignorent `scripts/record-demo`.
+
+- [x] **Étape 8 — Revue indépendante (`independent-code-reviewer`) & Build Tauri Release final**
   - Audit complet du `git diff v1.2.0..HEAD` par un sous-agent relecteur indépendant n'ayant pas écrit le code.
   - Correction de toute anomalie détectée (`package-lock.json` sync, `vite build` dans `ci.yml`, `assetProtocol` dans `tauri.conf.json`, `NSIS_HOOK_PREINSTALL` nettoyage `tauri-app.exe`) et validation finale : `npx tsc --noEmit`, `npx vitest run`, `cargo test`, `cargo clippy -- -D warnings`, et `tauri build`.
   - **Critère de fini** : 0 erreur, 0 warning, build Release `1.2.1` généré, branche non mergée et sans tag poussé.

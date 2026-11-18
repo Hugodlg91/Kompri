@@ -17,9 +17,9 @@ Store all captured assets under `docs/assets/` (relative paths below assume the 
 
 ## Checklist
 
-- [ ] **1. Short Workflow Demo GIF** — `docs/assets/demo.gif`
-  - **Duration**: `6–8` seconds.
-  - **Flow**: Drag & drop a media file into the drop zone → pick a format pill or Target Size preset → click Convert → show real-time progress bar completing into the result card with **Open Folder**.
+- [x] **1. Short Workflow Demo GIF** — `docs/assets/mediaforge-demo.gif` & `docs/assets/mediaforge-demo.mp4`
+  - **Duration**: `~12` seconds (automated via `npm run record-demo` in `scripts/record-demo/`).
+  - **Flow**: Switch to Video tab → drag & drop `ranked-clutch.mp4` (117.1 MB) → select **Discord 10 MB** preset → click Convert (`Pass 1/2` & `Pass 2/2`) → view `9.1 MB` result in History.
 
 - [ ] **2. Simple Conversion** — `docs/assets/simple-conversion.png`
   - **What to show**: Drag & drop zone populated with a file, format selector pills (`MP4` / `PNG` / `MP3`), and the completed **ConversionResult** card (`Open File` + `Open Folder` + `New Conversion`).
