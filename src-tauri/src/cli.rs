@@ -484,4 +484,33 @@ mod tests {
         let state_back: CliStartupState = serde_json::from_str(&state_json).unwrap();
         assert_eq!(state_back, state);
     }
+
+    #[test]
+    fn test_dash_y_filename_after_double_dash_is_not_parsed_as_flag() {
+        let args = s(&[
+            "MediaForge.exe",
+            "--action",
+            "compress",
+            "--preset",
+            "discord",
+            "--",
+            "-y.mp4",
+        ]);
+
+        let req = parse_cli_args(&args).expect("should parse -y.mp4 after --");
+        assert_eq!(
+            req,
+            CliRequest {
+                action: CliAction::Compress {
+                    preset: "discord".to_string()
+                },
+                files: vec!["-y.mp4".to_string()],
+                wait: false,
+            }
+        );
+        assert_eq!(
+            build_unique_cli_output_path("-y.mp4", "_discord", "mp4"),
+            "-y_discord.mp4"
+        );
+    }
 }
