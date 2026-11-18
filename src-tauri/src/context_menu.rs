@@ -838,6 +838,7 @@ mod tests {
                 format!("\"{new_exe}\" --action compress --preset discord -- \"%1\"")
             );
         }
+
         /// Writes the exact `shell\MediaForge` layout that MediaForge v1.2.1 registered.
         fn write_mediaforge_121_menu(prefix: &str, exe: &str) {
             type Item<'a> = (&'a str, &'a str, &'a str);

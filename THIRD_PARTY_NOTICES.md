@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Kompri (formerly Kompri) itself is distributed under the terms of [`LICENSE`](LICENSE) (MIT License + Commons Clause).
+Kompri (formerly MediaForge) itself is distributed under the terms of [`LICENSE`](LICENSE) (MIT License + Commons Clause).
 
 Kompri also bundles standalone third-party executables (**FFmpeg** and **FFprobe**) executed as external sidecar child processes via Tauri's shell sidecar mechanism. Those bundled binaries are independent works governed by their respective open-source licenses described below.
 
