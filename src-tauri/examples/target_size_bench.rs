@@ -139,10 +139,8 @@ fn probe(ffprobe: &str, input: &str) -> Result<Probe, String> {
                         });
                 }
             }
-            "audio" => {
-                if stream["codec_name"].as_str().is_some() {
-                    has_audio = true;
-                }
+            "audio" if stream["codec_name"].as_str().is_some() => {
+                has_audio = true;
             }
             _ => {}
         }

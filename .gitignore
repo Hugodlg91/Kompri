@@ -54,8 +54,7 @@ Thumbs.db
 desktop.ini
 
 # Editor / IDE
-.vscode/*
-!.vscode/extensions.json
+.vscode/
 .idea/
 *.suo
 *.ntvs*
@@ -82,6 +81,7 @@ rustup-init.exe
 # Misc
 .claude
 *.local
+docs/assets/*.mp4
 
 # Local Codex / Claude collaboration
 /AGENTS.md

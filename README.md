@@ -188,12 +188,6 @@ Generates native installers in `src-tauri/target/release/bundle/`:
 
 ---
 
-## Project Structure
-
-See [`arbo.md`](arbo.md) for the full annotated file tree.
-
----
-
 ## License
 
 GNU General Public License v3.0 ([`GPL-3.0-only`](LICENSE)) — © 2026 VladimirWRLD
